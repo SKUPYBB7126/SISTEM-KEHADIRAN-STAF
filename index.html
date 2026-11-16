@@ -1616,12 +1616,20 @@
       radius: 30
     };
 
+    // Konfigurasi Penstabilan Satelit (Elak Lompatan Koordinat Awal / GPS Jump)
+    const GPS_STABILIZE_SECONDS = 10; // Wajib stabil 10 saat sebelum buka akses
+    const MAX_GPS_ACCURACY_METERS = 25; // Ralat ketepatan satelit mesti <= 25 meter
+    let gpsStabilizeRemaining = GPS_STABILIZE_SECONDS;
+    let gpsWatchId = null;
+
     // State Kedudukan Semasa Peranti
     let currentDeviceGps = {
       lat: null,
       lng: null,
       accuracy: null,
       inZone: false,
+      isStabilizing: true,
+      isAccuracyGood: false,
       zoneName: '',
       distZon: null,
       error: null
@@ -1771,7 +1779,12 @@
       const distZon = calculateHaversineMeters(lat, lng, gpsZone.lat, gpsZone.lng);
       currentDeviceGps.distZon = distZon;
 
-      const inZon = distZon !== null && distZon <= (gpsZone.radius || 30);
+      const withinRadius = distZon !== null && distZon <= (gpsZone.radius || 30);
+      const isAccuracyGood = acc !== null && acc <= MAX_GPS_ACCURACY_METERS;
+      currentDeviceGps.isAccuracyGood = isAccuracyGood;
+
+      // Staf hanya disahkan berada di dalam zon selepas 10 saat penstabilan tamat DAN ralat satelit <= 25m
+      const inZon = !currentDeviceGps.isStabilizing && withinRadius && isAccuracyGood;
       currentDeviceGps.inZone = inZon;
       currentDeviceGps.zoneName = inZon ? 'Pejabat Sekolah & Dewan Serbaguna' : 'Luar Kawasan Dibenarkan';
 
@@ -1783,12 +1796,18 @@
 
       if (adminCoordsEl) {
         adminCoordsEl.textContent = lat !== null ? `${lat.toFixed(6)}, ${lng.toFixed(6)}` : 'Menunggu GPS...';
-        adminAccEl.textContent = acc !== null ? `± ${Math.round(acc)} meter` : '± -- meter';
+        adminAccEl.textContent = acc !== null ? `± ${Math.round(acc)}m (Had Ralat ≤${MAX_GPS_ACCURACY_METERS}m)` : '± -- meter';
         adminDistZ.textContent = distZon !== null ? `${distZon.toFixed(1)}m / Had ${gpsZone.radius}m` : 'Belum diset';
 
         if (lat === null) {
           adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white self-start';
           adminStatusEl.textContent = '🛰️ Menunggu bacaan satelit...';
+        } else if (currentDeviceGps.isStabilizing) {
+          adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white self-start';
+          adminStatusEl.textContent = `⏳ MENSTABILKAN SATELIT (${gpsStabilizeRemaining}s)...`;
+        } else if (!isAccuracyGood) {
+          adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 text-white self-start';
+          adminStatusEl.textContent = `⚠️ RALAT SATELIT TINGGI (±${Math.round(acc)}m > ${MAX_GPS_ACCURACY_METERS}m)`;
         } else if (currentDeviceGps.inZone) {
           adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-green-500 text-white self-start';
           adminStatusEl.textContent = '✅ DI DALAM ZON SAH (Pejabat & Dewan)';
@@ -1807,7 +1826,7 @@
         if (staffDistZ) {
           staffDistZ.textContent = distZon !== null ? `${distZon.toFixed(1)}m (Had ${gpsZone.radius}m)` : 'Belum ditetapkan';
         }
-        staffAcc.textContent = acc !== null ? `± ${Math.round(acc)} meter` : '± -- meter';
+        staffAcc.textContent = acc !== null ? `± ${Math.round(acc)} meter (Syarat ≤ ${MAX_GPS_ACCURACY_METERS}m)` : '± -- meter';
 
         const noZoneConfigured = gpsZone.lat === null || gpsZone.lng === null;
         if (currentDeviceGps.error) {
@@ -1816,12 +1835,18 @@
         } else if (noZoneConfigured) {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
           staffBadge.textContent = '⚠️ Admin belum menetapkan koordinat Zon pada tab Tetapan Zon GPS.';
+        } else if (currentDeviceGps.isStabilizing) {
+          staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
+          staffBadge.textContent = `⏳ Menstabilkan ketepatan satelit GPS (${gpsStabilizeRemaining} saat lagi)... Menapis ralat lompatan awal.`;
         } else if (lat === null) {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
           staffBadge.textContent = '🛰️ Sedang mendapatkan bacaan tepat satelit GPS...';
+        } else if (!isAccuracyGood) {
+          staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
+          staffBadge.textContent = `⚠️ Ralat ketepatan satelit masih tinggi (±${Math.round(acc)}m). Menunggu bacaan stabil ≤ ±${MAX_GPS_ACCURACY_METERS}m...`;
         } else if (currentDeviceGps.inZone) {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-green-100 text-green-800 border border-green-300';
-          staffBadge.textContent = '✅ Lokasi Sahih: Anda berada di dalam zon Pejabat Sekolah & Dewan Serbaguna.';
+          staffBadge.textContent = '✅ Lokasi Sahih & Stabil: Anda berada di dalam zon Pejabat Sekolah & Dewan Serbaguna.';
         } else {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-red-100 text-red-800 border border-red-300';
           staffBadge.textContent = '⛔ Anda berada di luar radius Pejabat Sekolah & Dewan Serbaguna. Butang Hantar dikunci.';
@@ -1831,14 +1856,42 @@
       validateRealtimeAttendanceWindow();
     }
 
-    // Mulakan pemantauan GPS berterusan
+    // Paksa cip GPS telefon mengambil bacaan satelit segar tanpa cache
+    function requestFreshGpsFix() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          currentDeviceGps.lat = pos.coords.latitude;
+          currentDeviceGps.lng = pos.coords.longitude;
+          currentDeviceGps.accuracy = pos.coords.accuracy;
+          currentDeviceGps.error = null;
+          evaluateGpsPosition();
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+      );
+    }
+
+    // Mulakan pemantauan GPS berterusan dengan tempoh penstabilan 10 saat
     function startGpsMonitoring() {
       if (!navigator.geolocation) {
         currentDeviceGps.error = 'Peranti tidak menyokong GPS';
         evaluateGpsPosition();
         return;
       }
-      navigator.geolocation.watchPosition(
+
+      // Reset tempoh penstabilan 10 saat supaya bacaan lompatan awal tidak terus diterima
+      gpsStabilizeRemaining = GPS_STABILIZE_SECONDS;
+      currentDeviceGps.isStabilizing = true;
+      currentDeviceGps.inZone = false;
+
+      if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+      }
+
+      requestFreshGpsFix();
+
+      gpsWatchId = navigator.geolocation.watchPosition(
         (pos) => {
           currentDeviceGps.lat = pos.coords.latitude;
           currentDeviceGps.lng = pos.coords.longitude;
@@ -1850,16 +1903,17 @@
           currentDeviceGps.error = 'Akses lokasi ditolak atau isyarat lemah';
           evaluateGpsPosition();
         },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
       );
+      evaluateGpsPosition();
     }
 
     function refreshStaffGps() {
-      showToast('🛰️ Menyemak semula kedudukan satelit GPS...', 'success');
+      showToast('🛰️ Menstabilkan semula bacaan satelit GPS (10 saat)...', 'success');
       startGpsMonitoring();
     }
 
-    // Fungsi Kemas Kini Jam Masa Nyata & Kawalan Had Masa + Zon GPS Kehadiran
+    // Fungsi Kemas Kini Jam Masa Nyata, Kiraan Detik Penstabilan GPS 10 Saat & Kawalan Kehadiran
     function updateRealtimeClock() {
       const clockEl = document.getElementById('realtime-clock');
       if (clockEl) {
@@ -1871,6 +1925,23 @@
           hour12: true
         }).toUpperCase();
       }
+
+      // Kiraan detik 10 saat penstabilan satelit GPS
+      if (currentDeviceGps.isStabilizing) {
+        if (gpsStabilizeRemaining > 0) {
+          gpsStabilizeRemaining--;
+          if (gpsStabilizeRemaining === 5 || gpsStabilizeRemaining === 1) {
+            requestFreshGpsFix();
+          }
+        }
+        if (gpsStabilizeRemaining <= 0) {
+          currentDeviceGps.isStabilizing = false;
+          requestFreshGpsFix();
+        }
+        evaluateGpsPosition();
+        return;
+      }
+
       validateRealtimeAttendanceWindow();
     }
 
@@ -2036,10 +2107,23 @@
         return false;
       }
 
-      // Waktu sahih, kini semak syarat kedua: Zon Lokasi GPS
+      // Waktu sahih, kini semak syarat kedua: Penstabilan 10s, Ketepatan Satelit & Zon Lokasi GPS
       infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-green-50 text-green-700 border-green-200';
       infoBox.textContent = `✅ Waktu & Tarikh Semasa (${bounds.todayDisplay}) sah untuk ${jawatan} (${labelWaktu}).`;
       infoBox.classList.remove('hidden');
+
+      if (currentDeviceGps.isStabilizing) {
+        submitBtn.disabled = true;
+        submitText.textContent = `⏳ Menstabilkan Satelit GPS (${gpsStabilizeRemaining}s)...`;
+        return false;
+      }
+
+      if (!currentDeviceGps.isAccuracyGood) {
+        submitBtn.disabled = true;
+        const ralatSemasa = currentDeviceGps.accuracy !== null ? `±${Math.round(currentDeviceGps.accuracy)}m` : '';
+        submitText.textContent = `⚠️ Menunggu Ketepatan Satelit Stabil ${ralatSemasa} (Hantar Dikunci)`;
+        return false;
+      }
 
       if (!currentDeviceGps.inZone) {
         submitBtn.disabled = true;
