@@ -177,6 +177,18 @@
               <label for="report-date" class="block text-sm font-semibold text-gray-700">Tarikh Laporan <span class="text-red-500">*</span></label>
               <input type="date" id="report-date" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white">
               <p class="text-xs text-gray-500">* Hanya Isnin hingga Jumaat sahaja</p>
+              
+              <!-- Paparan Masa Secara Real-Time -->
+              <div class="mt-3 p-4 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl border border-teal-200 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span class="text-sm font-semibold text-gray-700">Masa Semasa (Real-Time):</span>
+                </div>
+                <span id="realtime-clock" class="text-lg font-bold text-teal-800 tracking-wider font-mono">--:--:--</span>
+              </div>
+              <div id="time-window-info" class="hidden mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border"></div>
             </div>
 
             <!-- Status Kehadiran -->
@@ -188,6 +200,37 @@
                 <option value="Tidak Hadir">❌ Tidak Hadir</option>
               </select>
             </div>
+
+         <!-- Panel Kawalan Zon GPS Staf (Hanya Untuk Status Hadir) -->
+            <div id="staff-gps-panel" class="hidden p-4 rounded-xl border-2 border-teal-200 bg-gradient-to-r from-teal-50 to-emerald-50 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  <span class="text-sm font-bold text-gray-800">Semakan Zon Lokasi GPS (Pejabat Sekolah & Dewan Serbaguna)</span>
+                </div>
+                <button type="button" onclick="refreshStaffGps()" class="px-3 py-1 bg-white hover:bg-teal-100 text-teal-700 text-xs font-semibold rounded-lg border border-teal-300 shadow-sm transition-all">
+                  🔄 Semak Semula GPS
+                </button>
+              </div>
+              <div id="staff-gps-badge" class="px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                🛰️ Sedang mengesan isyarat satelit GPS telefon anda...
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                <div class="bg-white p-2.5 rounded-lg border border-gray-200">
+                  <span class="text-gray-500 block">Jarak ke Titik Tengah Zon (Pejabat & Dewan):</span>
+                  <span id="dist-zon-text" class="font-bold text-gray-800 text-sm">-- meter</span>
+                </div>
+                <div class="bg-white p-2.5 rounded-lg border border-gray-200">
+                  <span class="text-gray-500 block">Ralat Ketepatan Satelit:</span>
+                  <span id="staff-gps-accuracy" class="font-bold text-gray-800 text-sm">± -- meter</span>
+                </div>
+              </div>
+            </div>
+
+2. Kad Tetapan 1 Zon Ban
 
             <!-- Sebab Tidak Hadir -->
             <div id="reason-container" class="space-y-2 hidden">
@@ -247,9 +290,10 @@
               <label for="weekly-attendance-status" class="block text-sm font-semibold text-gray-700">Status Kehadiran (Sama untuk semua hari Isnin-Jumaat) <span class="text-red-500">*</span></label>
               <select id="weekly-attendance-status" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white">
                 <option value="">-- Pilih Status --</option>
-                <option value="Hadir">✅ Hadir (Semua Hari)</option>
-                <option value="Tidak Hadir">❌ Tidak Hadir (Semua Hari)</option>
+                <option value="Hadir" disabled>🚫 Hadir (Tidak Dibenarkan - Wajib Isi Harian Mengikut Masa Nyata)</option>
+                <option value="Tidak Hadir">❌ Tidak Hadir (Semua Hari Isnin - Jumaat)</option>
               </select>
+              <p class="text-xs text-amber-700 font-medium">* Laporan Mingguan (5 hari sekaligus) hanya dibenarkan untuk status Tidak Hadir sahaja.</p>
             </div>
 
             <!-- Sebab Tidak Hadir (Sama untuk semua hari) -->
@@ -271,11 +315,18 @@
         </div>
       </div>
 
-      <!-- TAB 2: Dashboard Laporan -->
+     <!-- TAB 2: Dashboard Laporan -->
       <div id="content-dashboard" class="tab-content hidden">
         <!-- Sub-Tab Navigation for Dashboard -->
         <div class="bg-white rounded-xl shadow-md border border-gray-100 mb-6">
-          <div class="flex gap-2 p-2">
+          <div class="flex flex-wrap gap-2 p-2">
+            <button onclick="switchDashboardTab('gps')" id="subtab-gps" class="dashboard-tab-btn flex-1 px-6 py-3 font-semibold text-gray-600 hover:text-teal-600 transition-colors rounded-lg flex items-center justify-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              Tetapan Zon GPS
+            </button>
             <button onclick="switchDashboardTab('semak')" id="subtab-semak" class="dashboard-tab-btn flex-1 px-6 py-3 font-semibold text-gray-600 hover:text-teal-600 transition-colors rounded-lg dashboard-tab-active flex items-center justify-center gap-2">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
@@ -288,6 +339,92 @@
               </svg>
               Rekod Individu Staf
             </button>
+          </div>
+        </div>
+
+        <!-- TETAPAN ZON GPS (ADMIN) -->
+        <div id="dashboard-gps" class="dashboard-content hidden">
+          <div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-5">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center">
+                  <svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h2 class="text-2xl font-bold text-gray-800">Kalibrasi Lokasi Tanpa Peta (Zon GPS)</h2>
+                  <p class="text-gray-500 text-sm">Berdiri di tengah bangunan, rakam koordinat satelit & laraskan radius meter</p>
+                </div>
+              </div>
+              <button type="button" onclick="loadGpsZonesFromSheet()" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-sm transition-colors flex items-center gap-2 self-start">
+                🔄 Muat Semula Koordinat Sheet
+              </button>
+            </div>
+
+           <!-- Panel Penguji Jarak Langsung (Live Distance Tester ke Kuarters) -->
+            <div class="p-5 rounded-2xl bg-gradient-to-r from-slate-800 to-teal-900 text-white shadow-lg space-y-4">
+              <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                <div>
+                  <span class="text-xs uppercase tracking-wider text-teal-300 font-bold">🛰️ Radar Satelit Semasa & Penguji Jarak Kuarters</span>
+                  <h3 class="text-lg font-bold mt-0.5">Uji Berjalan ke Arah Kuarters Guru</h3>
+                </div>
+                <span id="admin-live-zone-status" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white self-start">
+                  Menunggu bacaan GPS...
+                </span>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                <div class="bg-white/10 p-3 rounded-xl border border-white/15">
+                  <span class="text-teal-200 block mb-1">Koordinat Semasa Anda:</span>
+                  <span id="admin-live-coords" class="font-mono font-bold text-sm">-- , --</span>
+                </div>
+                <div class="bg-white/10 p-3 rounded-xl border border-white/15">
+                  <span class="text-teal-200 block mb-1">Ralat Ketepatan Satelit:</span>
+                  <span id="admin-live-accuracy" class="font-bold text-sm">± -- meter</span>
+                </div>
+                <div class="bg-white/10 p-3 rounded-xl border border-white/15">
+                  <span class="text-teal-200 block mb-1">Jarak dari Titik Tengah Zon:</span>
+                  <span id="admin-dist-zon" class="font-bold text-sm">-- meter</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kad Tetapan 1 Zon Bangunan (Merangkumi Pejabat Sekolah & Dewan Serbaguna) -->
+            <div class="p-6 rounded-2xl border-2 border-teal-200 bg-teal-50/40 space-y-4">
+              <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
+                  <span class="text-xs font-bold uppercase text-teal-700 bg-teal-100 px-2.5 py-1 rounded-md">Zon Bangunan Utama</span>
+                  <h3 class="text-lg font-bold text-gray-800 mt-1">🏢🏛️ Pejabat Sekolah & Dewan Serbaguna</h3>
+                  <p class="text-xs text-gray-500">Berdiri di titik tengah antara Pejabat Sekolah dan Dewan Serbaguna untuk merakam koordinat</p>
+                </div>
+                <button type="button" onclick="captureBuildingCenter()" class="px-5 py-3 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow transition-all self-start md:self-auto">
+                  📍 Rakam Titik Tengah Zon
+                </button>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">Latitud Tengah</label>
+                  <input type="number" step="any" id="gps-zon-lat" oninput="updateZoneFromInputs()" placeholder="Contoh: 2.123456" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono bg-white">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">Longitud Tengah</label>
+                  <input type="number" step="any" id="gps-zon-lng" oninput="updateZoneFromInputs()" placeholder="Contoh: 113.123456" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono bg-white">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">Had Radius Bulatan Zon (Meter)</label>
+                  <input type="number" min="5" max="500" id="gps-zon-radius" oninput="updateZoneFromInputs()" value="30" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-teal-800 bg-white">
+                </div>
+              </div>
+              <p class="text-xs text-gray-500">* Laraskan nilai radius (contohnya 20 hingga 40 meter) agar merangkumi Pejabat Sekolah dan Dewan Serbaguna tetapi tidak memasuki kawasan kuarters guru.</p>
+            </div>
+
+            <!-- Butang Simpan ke Google Sheet -->
+            <div class="pt-2">
+              <button type="button" id="save-gps-btn" onclick="saveGpsZonesToSheet()" class="btn-primary w-full py-4 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2">
+                <span>💾 Simpan Tetapan Zon GPS ke Google Sheet</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -486,7 +623,7 @@
 
   <script>
     // ✅ CONFIGURATION - Google Apps Script & CSV URLs
-    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHchJSX-f8VjCHC-I1hHDof2kWYt5AORp3eQrYfCZrdlhQqvIu2adhzfAWFYLA1mXocQ/exec';
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwpoyXwRhwEaMUUaX-FMTV1RklAqKvN6Nt5FWf3Z22Wbs2H1IHsEJDPij2DEGJ6vN5e/exec';
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRUfMMU_QAAPE9Y3bp1DtBCy7WSNYP5U3t6D8Jixmj2TpQpj_Qsns27s3ZMoboQwpHKA0Y3j2Db2k24/pub?gid=0&single=true&output=csv';
 
     let staffData = {};
@@ -815,6 +952,29 @@
               </div>
             `;
           } else {
+            // Format masa real-time untuk kad Hadir
+            let paparanMasa = '';
+            if (type === 'hadir') {
+              const sumberMasa = item.masa_kehadiran || item.masa || item.timestamp || '';
+              let teksMasa = 'Tiada rekod masa';
+              if (sumberMasa) {
+                const parsedDate = new Date(sumberMasa);
+                if (!isNaN(parsedDate.getTime())) {
+                  teksMasa = parsedDate.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).toUpperCase();
+                } else {
+                  teksMasa = sumberMasa;
+                }
+              }
+              paparanMasa = `
+                <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-lg border border-green-300">
+                  <svg class="w-3.5 h-3.5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>Masa: ${teksMasa}</span>
+                </div>
+              `;
+            }
+
             // Full card with details
             card.innerHTML = `
               <div class="flex items-start gap-3">
@@ -822,6 +982,7 @@
                 <div class="flex-1 min-w-0">
                   <p class="font-bold text-gray-800 truncate">${item.nama_staf}</p>
                   <p class="text-sm text-gray-600 truncate">${item.jawatan}</p>
+                  ${paparanMasa}
                   ${type === 'tidak-hadir' && item.sebab_tidak_hadir ? 
                     `<p class="text-xs text-gray-500 mt-2 italic">"${item.sebab_tidak_hadir}"</p>` : ''}
                 </div>
@@ -1019,6 +1180,7 @@
       } else {
         positionDisplay.classList.add('hidden');
       }
+      validateRealtimeAttendanceWindow();
     });
 
     // Weekly form submission
@@ -1032,6 +1194,11 @@
       
       if (!staffName || !startDate || !status) {
         showToast('⚠️ Sila lengkapkan semua maklumat wajib', 'error');
+        return;
+      }
+
+      if (status === 'Hadir') {
+        showToast('⚠️ Status Hadir tidak dibenarkan diisi secara 5 hari sekaligus', 'error');
         return;
       }
       
@@ -1128,6 +1295,352 @@
       }
     });
 
+   let isSubmittingDaily = false;
+
+    // State Tetapan 1 Zon GPS (Merangkumi Pejabat Sekolah & Dewan Serbaguna)
+    let gpsZone = {
+      name: 'Pejabat Sekolah & Dewan Serbaguna',
+      lat: null,
+      lng: null,
+      radius: 30
+    };
+
+    // State Kedudukan Semasa Peranti
+    let currentDeviceGps = {
+      lat: null,
+      lng: null,
+      accuracy: null,
+      inZone: false,
+      zoneName: '',
+      distZon: null,
+      error: null
+    };
+
+    // Formula Matematik Haversine (Kira jarak dalam meter antara 2 titik GPS)
+    function calculateHaversineMeters(lat1, lon1, lat2, lon2) {
+      if (lat1 === null || lon1 === null || lat2 === null || lon2 === null || isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) {
+        return null;
+      }
+      const R = 6371000; // Radius bumi dalam meter
+      const toRad = (deg) => (deg * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    // Paparkan nilai gpsZone ke dalam kotak input Admin
+    function syncGpsInputsFromState() {
+      const zLat = document.getElementById('gps-zon-lat');
+      const zLng = document.getElementById('gps-zon-lng');
+      const zRad = document.getElementById('gps-zon-radius');
+
+      if (zLat) zLat.value = gpsZone.lat !== null ? gpsZone.lat : '';
+      if (zLng) zLng.value = gpsZone.lng !== null ? gpsZone.lng : '';
+      if (zRad) zRad.value = gpsZone.radius || 30;
+    }
+
+    // Kemas kini state apabila Admin menaip ubah koordinat atau radius
+    function updateZoneFromInputs() {
+      const zLat = parseFloat(document.getElementById('gps-zon-lat').value);
+      const zLng = parseFloat(document.getElementById('gps-zon-lng').value);
+      const zRad = parseFloat(document.getElementById('gps-zon-radius').value);
+
+      gpsZone.lat = !isNaN(zLat) ? zLat : null;
+      gpsZone.lng = !isNaN(zLng) ? zLng : null;
+      gpsZone.radius = !isNaN(zRad) && zRad > 0 ? zRad : 30;
+
+      evaluateGpsPosition();
+    }
+
+    // Rakam titik tengah zon (Pejabat Sekolah & Dewan Serbaguna) secara fizikal oleh Admin
+    function captureBuildingCenter() {
+      if (!navigator.geolocation) {
+        showToast('❌ Pelayar anda tidak menyokong fungsi GPS', 'error');
+        return;
+      }
+      showToast('🛰️ Merakam koordinat satelit ketepatan tinggi...', 'success');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = parseFloat(pos.coords.latitude.toFixed(7));
+          const lng = parseFloat(pos.coords.longitude.toFixed(7));
+          const acc = Math.round(pos.coords.accuracy);
+
+          gpsZone.lat = lat;
+          gpsZone.lng = lng;
+          syncGpsInputsFromState();
+          evaluateGpsPosition();
+
+          showToast(`✅ Titik tengah Zon (Pejabat & Dewan) dirakam! (Ketepatan: ±${acc}m). Sila tekan Simpan ke Google Sheet.`, 'success');
+        },
+        (err) => {
+          showToast('❌ Gagal merakam GPS: Sila pastikan kebenaran lokasi (Location) diaktifkan.', 'error');
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    // Simpan tetapan koordinat 1 Zon ke dalam Google Sheet
+    async function saveGpsZonesToSheet() {
+      updateZoneFromInputs();
+      const btn = document.getElementById('save-gps-btn');
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div><span>Menyimpan ke Google Sheet...</span>';
+
+      try {
+        localStorage.setItem('skup_gps_zone_single', JSON.stringify(gpsZone));
+
+        const url = new URL(GOOGLE_APPS_SCRIPT_URL);
+        url.searchParams.append('action', 'saveGpsZones');
+        url.searchParams.append('zon_lat', gpsZone.lat !== null ? gpsZone.lat : '');
+        url.searchParams.append('zon_lng', gpsZone.lng !== null ? gpsZone.lng : '');
+        url.searchParams.append('zon_radius', gpsZone.radius || 30);
+
+        const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          showToast('✅ Tetapan Zon GPS berjaya disimpan ke dalam Google Sheet!', 'success');
+        } else {
+          throw new Error(result.message || 'Pastikan kod Apps Script telah dikemaskini untuk fungsi saveGpsZones');
+        }
+      } catch (error) {
+        console.error('❌ Error saving GPS zone:', error);
+        showToast('⚠️ Disimpan secara lokal. (' + error.message + ')', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        evaluateGpsPosition();
+      }
+    }
+
+    // Muat tetapan koordinat 1 Zon dari Google Sheet semasa aplikasi dibuka
+    async function loadGpsZonesFromSheet() {
+      try {
+        const cached = localStorage.getItem('skup_gps_zone_single');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.radius !== undefined) {
+            gpsZone = parsed;
+            syncGpsInputsFromState();
+          }
+        }
+
+        const url = `${GOOGLE_APPS_SCRIPT_URL}?action=getGpsZones`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.status === 'success' && result.data) {
+          const d = result.data;
+          if (d.zon_lat !== undefined && d.zon_lat !== '') gpsZone.lat = parseFloat(d.zon_lat);
+          if (d.zon_lng !== undefined && d.zon_lng !== '') gpsZone.lng = parseFloat(d.zon_lng);
+          if (d.zon_radius !== undefined && d.zon_radius !== '') gpsZone.radius = parseFloat(d.zon_radius);
+
+          localStorage.setItem('skup_gps_zone_single', JSON.stringify(gpsZone));
+          syncGpsInputsFromState();
+          evaluateGpsPosition();
+          console.log('✅ Zon GPS dimuatkan dari Google Sheet:', gpsZone);
+        }
+      } catch (error) {
+        console.log('ℹ️ Menggunakan tetapan GPS sedia ada:', error.message);
+      }
+    }
+
+    // Kira jarak semasa ke Titik Tengah Zon (Pejabat & Dewan) serta kemas kini UI Staf & Admin
+    function evaluateGpsPosition() {
+      const lat = currentDeviceGps.lat;
+      const lng = currentDeviceGps.lng;
+      const acc = currentDeviceGps.accuracy;
+
+      const distZon = calculateHaversineMeters(lat, lng, gpsZone.lat, gpsZone.lng);
+      currentDeviceGps.distZon = distZon;
+
+      const inZon = distZon !== null && distZon <= (gpsZone.radius || 30);
+      currentDeviceGps.inZone = inZon;
+      currentDeviceGps.zoneName = inZon ? 'Pejabat Sekolah & Dewan Serbaguna' : 'Luar Kawasan Dibenarkan';
+
+      // Kemas kini Panel Penguji Jarak Admin
+      const adminCoordsEl = document.getElementById('admin-live-coords');
+      const adminAccEl = document.getElementById('admin-live-accuracy');
+      const adminDistZ = document.getElementById('admin-dist-zon');
+      const adminStatusEl = document.getElementById('admin-live-zone-status');
+
+      if (adminCoordsEl) {
+        adminCoordsEl.textContent = lat !== null ? `${lat.toFixed(6)}, ${lng.toFixed(6)}` : 'Menunggu GPS...';
+        adminAccEl.textContent = acc !== null ? `± ${Math.round(acc)} meter` : '± -- meter';
+        adminDistZ.textContent = distZon !== null ? `${distZon.toFixed(1)}m / Had ${gpsZone.radius}m` : 'Belum diset';
+
+        if (lat === null) {
+          adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white self-start';
+          adminStatusEl.textContent = '🛰️ Menunggu bacaan satelit...';
+        } else if (currentDeviceGps.inZone) {
+          adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-green-500 text-white self-start';
+          adminStatusEl.textContent = '✅ DI DALAM ZON SAH (Pejabat & Dewan)';
+        } else {
+          adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white self-start';
+          adminStatusEl.textContent = '🔒 DI LUAR ZON (Kuarters / Kawasan Luar Terkunci)';
+        }
+      }
+
+      // Kemas kini Panel GPS Staf pada Borang Harian
+      const staffBadge = document.getElementById('staff-gps-badge');
+      const staffDistZ = document.getElementById('dist-zon-text');
+      const staffAcc = document.getElementById('staff-gps-accuracy');
+
+      if (staffBadge) {
+        if (staffDistZ) {
+          staffDistZ.textContent = distZon !== null ? `${distZon.toFixed(1)}m (Had ${gpsZone.radius}m)` : 'Belum ditetapkan';
+        }
+        staffAcc.textContent = acc !== null ? `± ${Math.round(acc)} meter` : '± -- meter';
+
+        const noZoneConfigured = gpsZone.lat === null || gpsZone.lng === null;
+        if (currentDeviceGps.error) {
+          staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-red-100 text-red-800 border border-red-300';
+          staffBadge.textContent = `⛔ Ralat GPS: ${currentDeviceGps.error}. Sila aktifkan Location telefon anda.`;
+        } else if (noZoneConfigured) {
+          staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
+          staffBadge.textContent = '⚠️ Admin belum menetapkan koordinat Zon pada tab Tetapan Zon GPS.';
+        } else if (lat === null) {
+          staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
+          staffBadge.textContent = '🛰️ Sedang mendapatkan bacaan tepat satelit GPS...';
+        } else if (currentDeviceGps.inZone) {
+          staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-green-100 text-green-800 border border-green-300';
+          staffBadge.textContent = '✅ Lokasi Sahih: Anda berada di dalam zon Pejabat Sekolah & Dewan Serbaguna.';
+        } else {
+          staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-red-100 text-red-800 border border-red-300';
+          staffBadge.textContent = '⛔ Anda berada di luar radius Pejabat Sekolah & Dewan Serbaguna. Butang Hantar dikunci.';
+        }
+      }
+
+      validateRealtimeAttendanceWindow();
+    }
+
+    // Mulakan pemantauan GPS berterusan
+    function startGpsMonitoring() {
+      if (!navigator.geolocation) {
+        currentDeviceGps.error = 'Peranti tidak menyokong GPS';
+        evaluateGpsPosition();
+        return;
+      }
+      navigator.geolocation.watchPosition(
+        (pos) => {
+          currentDeviceGps.lat = pos.coords.latitude;
+          currentDeviceGps.lng = pos.coords.longitude;
+          currentDeviceGps.accuracy = pos.coords.accuracy;
+          currentDeviceGps.error = null;
+          evaluateGpsPosition();
+        },
+        (err) => {
+          currentDeviceGps.error = 'Akses lokasi ditolak atau isyarat lemah';
+          evaluateGpsPosition();
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      );
+    }
+
+    function refreshStaffGps() {
+      showToast('🛰️ Menyemak semula kedudukan satelit GPS...', 'success');
+      startGpsMonitoring();
+    }
+
+    // Fungsi Kemas Kini Jam Masa Nyata & Kawalan Had Masa + Zon GPS Kehadiran
+    function updateRealtimeClock() {
+      const clockEl = document.getElementById('realtime-clock');
+      if (clockEl) {
+        const now = new Date();
+        clockEl.textContent = now.toLocaleTimeString('ms-MY', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        }).toUpperCase();
+      }
+      validateRealtimeAttendanceWindow();
+    }
+
+    function validateRealtimeAttendanceWindow() {
+      if (isSubmittingDaily) return true;
+
+      const staffName = document.getElementById('staff-name').value;
+      const status = document.getElementById('attendance-status').value;
+      const submitBtn = document.getElementById('submit-btn');
+      const submitText = document.getElementById('submit-text');
+      const infoBox = document.getElementById('time-window-info');
+      const staffGpsPanel = document.getElementById('staff-gps-panel');
+
+      // Jika status adalah Tidak Hadir: tiada had masa & tiada sekatan GPS
+      if (status === 'Tidak Hadir') {
+        if (staffGpsPanel) staffGpsPanel.classList.add('hidden');
+        submitBtn.disabled = false;
+        submitText.textContent = 'Hantar Laporan';
+        infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-blue-50 text-blue-700 border-blue-200';
+        infoBox.textContent = 'ℹ️ Status Tidak Hadir dikecualikan daripada had waktu dan semakan lokasi GPS.';
+        infoBox.classList.remove('hidden');
+        return true;
+      }
+
+      // Paparkan panel GPS apabila pengguna memilih status Hadir
+      if (status === 'Hadir') {
+        if (staffGpsPanel) staffGpsPanel.classList.remove('hidden');
+      } else {
+        if (staffGpsPanel) staffGpsPanel.classList.add('hidden');
+      }
+
+      // Jika belum pilih nama staf atau status bukan Hadir
+      if (!staffName || status !== 'Hadir') {
+        submitBtn.disabled = false;
+        submitText.textContent = 'Hantar Laporan';
+        infoBox.classList.add('hidden');
+        return true;
+      }
+
+      const jawatan = (staffData[staffName] || '').trim();
+      const jawatanLower = jawatan.toLowerCase();
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      // Semak kategori jawatan: AKP (4:30 pagi - 8:00 pagi) vs Pentadbir & Guru Akademik Biasa (6:00 pagi - 12:30 tengah hari)
+      const isAKP = jawatanLower.includes('ahli kumpulan pelaksana') || jawatanLower.includes('akp');
+      const startMinutes = isAKP ? (4 * 60 + 30) : (6 * 60 + 0);
+      const endMinutes = isAKP ? (8 * 60 + 0) : (12 * 60 + 30);
+      const labelWaktu = isAKP ? '4:30 pagi hingga 8:00 pagi' : '6:00 pagi hingga 12:30 tengah hari';
+
+      const inTimeWindow = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+
+      if (!inTimeWindow) {
+        submitBtn.disabled = true;
+        submitText.textContent = 'Di Luar Waktu Kehadiran (Hantar Dikunci)';
+        infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-red-50 text-red-700 border-red-200';
+        infoBox.textContent = `⛔ Pengisian HADIR bagi ${jawatan} hanya dibenarkan bermula jam ${labelWaktu}.`;
+        infoBox.classList.remove('hidden');
+        return false;
+      }
+
+      // Waktu sahih, kini semak syarat kedua: Zon Lokasi GPS
+      infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-green-50 text-green-700 border-green-200';
+      infoBox.textContent = `✅ Waktu pengisian HADIR dibuka untuk ${jawatan} (${labelWaktu}).`;
+      infoBox.classList.remove('hidden');
+
+      if (!currentDeviceGps.inZone) {
+        submitBtn.disabled = true;
+        submitText.textContent = 'Di Luar Zon GPS Sekolah (Hantar Dikunci)';
+        return false;
+      }
+
+      submitBtn.disabled = false;
+      submitText.textContent = `Hantar Laporan (${currentDeviceGps.zoneName})`;
+      return true;
+    }
+
+    // Mulakan jam masa nyata setiap 1 saat
+    setInterval(updateRealtimeClock, 1000);
+    updateRealtimeClock();
+
     // Date validation - only weekdays
     document.getElementById('report-date').addEventListener('change', function() {
       const date = new Date(this.value + 'T00:00:00');
@@ -1152,6 +1665,7 @@
         reasonInput.required = false;
         reasonInput.value = '';
       }
+      validateRealtimeAttendanceWindow();
     });
 
     // Daily form submission
@@ -1172,28 +1686,38 @@
         showToast('⚠️ Sila nyatakan sebab tidak hadir', 'error');
         return;
       }
+
+      if (!validateRealtimeAttendanceWindow()) {
+        showToast('⛔ Tidak dapat menghantar laporan: Pastikan anda berada di dalam waktu kehadiran dan di dalam zon GPS Pejabat atau Dewan.', 'error');
+        return;
+      }
       
       const submitBtn = document.getElementById('submit-btn');
       const submitText = document.getElementById('submit-text');
       const submitIcon = document.getElementById('submit-icon');
       
+      isSubmittingDaily = true;
       submitBtn.disabled = true;
       submitIcon.innerHTML = '';
       submitIcon.className = 'spinner';
       submitText.textContent = 'Menghantar ke Google Sheet...';
       
       try {
-        const timestamp = new Date().toISOString();
+        const now = new Date();
+        const timestamp = now.toISOString();
+        const masaKehadiran = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).toUpperCase();
         const jawatan = staffData[staffName] || '';
         
         // Build URL with parameters
         const url = new URL(GOOGLE_APPS_SCRIPT_URL);
         url.searchParams.append('timestamp', timestamp);
+        url.searchParams.append('masa_kehadiran', masaKehadiran);
         url.searchParams.append('nama_staf', staffName);
         url.searchParams.append('jawatan', jawatan);
         url.searchParams.append('tarikh_laporan', reportDate);
         url.searchParams.append('status_kehadiran', status);
         url.searchParams.append('sebab_tidak_hadir', status === 'Tidak Hadir' ? reason : '');
+        url.searchParams.append('zon_gps', status === 'Hadir' ? currentDeviceGps.zoneName : 'Dikecualikan');
         
         console.log('📤 Sending daily attendance:', url.toString());
         
@@ -1235,10 +1759,12 @@
         console.error('❌ Error submitting form:', error);
         showToast('❌ ' + error.message, 'error');
       } finally {
+        isSubmittingDaily = false;
         submitBtn.disabled = false;
         submitIcon.className = 'w-5 h-5';
         submitIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>';
         submitText.textContent = 'Hantar Laporan';
+        validateRealtimeAttendanceWindow();
       }
     });
 
@@ -1247,8 +1773,10 @@
     const formattedDate = today.toISOString().split('T')[0];
     document.getElementById('report-date').value = formattedDate;
 
-    // Load staff data on page load
+    // Load staff data & GPS zones on page load
     loadStaffFromCSV();
+    loadGpsZonesFromSheet();
+    startGpsMonitoring();
   </script>
 </body>
 </html>
