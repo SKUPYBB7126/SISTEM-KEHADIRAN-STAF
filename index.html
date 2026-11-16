@@ -344,11 +344,11 @@
               </div>
             </div>
 
-            <!-- Tarikh Laporan -->
+           <!-- Tarikh Laporan -->
             <div class="space-y-2">
               <label for="report-date" class="block text-sm font-semibold text-gray-700">Tarikh Laporan <span class="text-red-500">*</span></label>
               <input type="date" id="report-date" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white">
-              <p class="text-xs text-gray-500">* Hanya Isnin hingga Jumaat sahaja</p>
+              <p id="report-date-hint" class="text-xs font-medium text-gray-600">* Hanya hari bekerja Isnin hingga Jumaat (Sabtu, Ahad & tarikh lepas dikunci)</p>
               
               <!-- Paparan Masa Secara Real-Time -->
               <div class="mt-3 p-4 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-xl border border-teal-200 flex items-center justify-between">
@@ -437,7 +437,7 @@
             <div class="space-y-2">
               <label for="weekly-start-date" class="block text-sm font-semibold text-gray-700">Tarikh Mula (Isnin) <span class="text-red-500">*</span></label>
               <input type="date" id="weekly-start-date" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white">
-              <p class="text-xs text-gray-500">* Hanya hari Isnin sahaja</p>
+              <p id="weekly-date-hint" class="text-xs font-medium text-gray-600">* Hanya hari Isnin sahaja (Tiada backdate & maksimum 1 minggu hadapan: Isnin - Jumaat)</p>
             </div>
 
             <!-- Tarikh Akhir Display (Jumaat) -->
@@ -1385,53 +1385,87 @@
       }
     });
 
-    // Weekly start date change handler
+// Weekly start date change handler (Tab Lapor Mingguan: Boleh tambah 1 minggu ke depan Isnin - Jumaat)
     document.getElementById('weekly-start-date').addEventListener('change', function() {
-      // Parse the date string as local date, not UTC
+      if (!this.value) {
+        document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
+        document.getElementById('weekly-range-preview').classList.add('hidden');
+        return;
+      }
+
+      const bounds = getAttendanceDateBounds();
+
+      // Parse tarikh yang dipilih sebagai tarikh tempatan
       const parts = this.value.split('-');
       const year = parseInt(parts[0]);
       const month = parseInt(parts[1]) - 1;
       const day = parseInt(parts[2]);
-      
-      const startDate = new Date(year, month, day);
-      const dayOfWeek = startDate.getDay();
-      
-      // Validate it's Monday (day 1)
-      if (dayOfWeek !== 1) {
-        showToast('⚠️ Sila pilih hari Isnin sahaja untuk tarikh mula', 'error');
+      const selectedDate = new Date(year, month, day);
+      const dayOfWeek = selectedDate.getDay();
+
+      // 1. Sekat hari Sabtu (6) dan Ahad (0)
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        showToast('⛔ Hari Sabtu dan Ahad dikunci! Hanya hari Isnin hingga Jumaat dibenarkan.', 'error');
         this.value = '';
         document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
         document.getElementById('weekly-range-preview').classList.add('hidden');
         return;
       }
-      
-      // Calculate Friday (end date) - exactly 4 days after Monday
-      const endDate = new Date(year, month, day + 4);
-      
-      // Format dates for display
+
+      // 2. Sekat tarikh lepas (backdate)
+      if (this.value < bounds.todayYMD) {
+        showToast('⛔ Tarikh lepas (backdate) tidak dibenarkan!', 'error');
+        this.value = '';
+        document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
+        document.getElementById('weekly-range-preview').classList.add('hidden');
+        return;
+      }
+
+      // 3. Sekat pengisian 2 minggu akan datang (maksimum sehingga Jumaat minggu hadapan sahaja)
+      if (this.value > bounds.nextFridayYMD) {
+        showToast(`⛔ Hanya dibenarkan tambah 1 minggu ke depan sahaja (Isnin ${bounds.nextMondayDisplay} - Jumaat ${bounds.nextFridayDisplay}). 2 minggu akan datang dikunci!`, 'error');
+        this.value = '';
+        document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
+        document.getElementById('weekly-range-preview').classList.add('hidden');
+        return;
+      }
+
+      // Dapatkan tarikh Isnin bagi minggu yang dipilih (jika pengguna menekan Selasa-Jumaat pada minggu hadapan)
+      const startDate = new Date(year, month, day - (dayOfWeek - 1));
+      const mondayYMD = formatLocalYMD(startDate);
+
+      // Pastikan hari Isnin minggu tersebut tidak jatuh pada tarikh lepas (backdate)
+      if (mondayYMD < bounds.todayYMD) {
+        showToast(`⛔ Hari Isnin minggu ini telah lepas (tiada backdate). Untuk Lapor Mingguan, sila pilih minggu hadapan (Isnin ${bounds.nextMondayDisplay} - Jumaat ${bounds.nextFridayDisplay}).`, 'error');
+        this.value = '';
+        document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
+        document.getElementById('weekly-range-preview').classList.add('hidden');
+        return;
+      }
+
+      // Tetapkan input kepada hari Isnin minggu tersebut secara automatik
+      this.value = mondayYMD;
+
+      // Kira hari Jumaat (tarikh akhir) - tepat 4 hari selepas Isnin (5 hari bekerja: Isnin - Jumaat)
+      const endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + 4);
+      const endDateValue = formatLocalYMD(endDate);
+
+      // Format tarikh untuk paparan
       const startFormatted = startDate.toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
       const endFormatted = endDate.toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      
-      // Get end date in YYYY-MM-DD format
-      const endYear = endDate.getFullYear();
-      const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
-      const endDay = String(endDate.getDate()).padStart(2, '0');
-      const endDateValue = `${endYear}-${endMonth}-${endDay}`;
-      
+
       console.log('📅 Weekly date range:');
       console.log('Start:', this.value, '→', startFormatted, '(Isnin)');
       console.log('End:', endDateValue, '→', endFormatted, '(Jumaat)');
-      
+
       // Update display
       document.getElementById('weekly-end-date-display').innerHTML = `<span class="text-center">${endFormatted}</span>`;
-      document.getElementById('weekly-range-text').textContent = `${startFormatted} hingga ${endFormatted} (Isnin - Jumaat)`;
+      document.getElementById('weekly-range-text').textContent = `${startFormatted} hingga ${endFormatted} (5 Hari: Isnin - Jumaat)`;
       document.getElementById('weekly-range-preview').classList.remove('hidden');
-      
+
       // Store end date for form submission
       document.getElementById('weekly-start-date').dataset.endDate = endDateValue;
-    });
-
-    // Weekly status change handler
+    });    // Weekly status change handler
     document.getElementById('weekly-attendance-status').addEventListener('change', function() {
       const reasonContainer = document.getElementById('weekly-reason-container');
       const reasonInput = document.getElementById('weekly-absence-reason');
@@ -1840,23 +1874,127 @@
       validateRealtimeAttendanceWindow();
     }
 
+// Fungsi Pembantu Format Tarikh Tempatan (YYYY-MM-DD) & Kiraan Had Minggu Hadapan (Isnin - Jumaat)
+    function formatLocalYMD(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatDisplayDMY(dateObj) {
+      return dateObj.toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    function getAttendanceDateBounds() {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const dayOfWeek = today.getDay(); // 0 = Ahad, 1 = Isnin, ..., 5 = Jumaat, 6 = Sabtu
+      const isTodayWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+
+      // Kira Isnin hingga Jumaat (5 hari bekerja) bagi 1 minggu hadapan
+      const daysUntilNextMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
+      const nextMonday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + daysUntilNextMonday);
+      const nextFriday = new Date(nextMonday.getFullYear(), nextMonday.getMonth(), nextMonday.getDate() + 4);
+
+      return {
+        today,
+        dayOfWeek,
+        isTodayWeekend,
+        todayYMD: formatLocalYMD(today),
+        todayDisplay: formatDisplayDMY(today),
+        nextMonday,
+        nextFriday,
+        nextMondayYMD: formatLocalYMD(nextMonday),
+        nextFridayYMD: formatLocalYMD(nextFriday),
+        nextMondayDisplay: formatDisplayDMY(nextMonday),
+        nextFridayDisplay: formatDisplayDMY(nextFriday)
+      };
+    }
+
+    // Kemas kini sekatan kalendar (min & max) bagi Tab Lapor Harian & Tab Lapor Mingguan
+    function updateDatePickerConstraints() {
+      const bounds = getAttendanceDateBounds();
+      const reportDateInput = document.getElementById('report-date');
+      const reportDateHint = document.getElementById('report-date-hint');
+      const weeklyStartInput = document.getElementById('weekly-start-date');
+      const weeklyDateHint = document.getElementById('weekly-date-hint');
+
+      // 1. TAB LAPOR MINGGUAN: Tiada backdate & boleh dibuat tambah 1 minggu ke depan (Isnin - Jumaat)
+      if (weeklyStartInput) {
+        weeklyStartInput.min = bounds.todayYMD;
+        weeklyStartInput.max = bounds.nextFridayYMD;
+      }
+      if (weeklyDateHint) {
+        weeklyDateHint.textContent = `* Lapor Mingguan (5 Hari Isnin - Jumaat): Boleh ditambah 1 minggu ke depan (${bounds.nextMondayDisplay} hingga ${bounds.nextFridayDisplay}). Sabtu, Ahad, backdate & 2 minggu ke atas dikunci.`;
+      }
+
+      if (!reportDateInput) return;
+
+      // 2. TAB LAPOR HARIAN: Khusus untuk tarikh hari semasa sahaja (tiada backdate & tiada tarikh hadapan)
+      reportDateInput.min = bounds.todayYMD;
+      reportDateInput.max = bounds.todayYMD;
+
+      if (reportDateHint) {
+        reportDateHint.textContent = `* Lapor Harian: Khusus untuk tarikh hari semasa sahaja (${bounds.todayDisplay}, Isnin - Jumaat). Sabtu, Ahad & tarikh lepas/hadapan dikunci.`;
+      }
+
+      if (bounds.isTodayWeekend) {
+        reportDateInput.value = '';
+      } else {
+        reportDateInput.value = bounds.todayYMD;
+      }
+    }
+
     function validateRealtimeAttendanceWindow() {
       if (isSubmittingDaily) return true;
 
+      const bounds = getAttendanceDateBounds();
       const staffName = document.getElementById('staff-name').value;
       const status = document.getElementById('attendance-status').value;
+      const reportDate = document.getElementById('report-date').value;
       const submitBtn = document.getElementById('submit-btn');
       const submitText = document.getElementById('submit-text');
       const infoBox = document.getElementById('time-window-info');
       const staffGpsPanel = document.getElementById('staff-gps-panel');
 
-      // Jika status adalah Tidak Hadir: tiada had masa & tiada sekatan GPS
+      // Semak kesahihan hari bekerja (Isnin - Jumaat) pada Tab Lapor Harian
+      let isSelectedWeekend = false;
+      if (reportDate) {
+        const dObj = new Date(reportDate + 'T00:00:00');
+        const dayNum = dObj.getDay();
+        isSelectedWeekend = (dayNum === 0 || dayNum === 6);
+      }
+
+      // Sekat jika hari ini adalah Sabtu/Ahad pada Tab Lapor Harian
+      if (bounds.isTodayWeekend || isSelectedWeekend) {
+        if (staffGpsPanel) staffGpsPanel.classList.add('hidden');
+        submitBtn.disabled = true;
+        submitText.textContent = 'Cuti Hujung Minggu Sabtu/Ahad (Hantar Dikunci)';
+        infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-red-50 text-red-700 border-red-200';
+        infoBox.textContent = '⛔ Pengisian Lapor Harian hanya dibenarkan pada hari bekerja (Isnin hingga Jumaat). Hari Sabtu dan Ahad dikunci.';
+        infoBox.classList.remove('hidden');
+        return false;
+      }
+
+      // Pastikan Tab Lapor Harian hanya menggunakan tarikh hari semasa sahaja
+      if (!reportDate || reportDate !== bounds.todayYMD) {
+        if (staffGpsPanel) staffGpsPanel.classList.add('hidden');
+        submitBtn.disabled = true;
+        submitText.textContent = 'Wajib Tarikh Hari Semasa Sahaja (Hantar Dikunci)';
+        infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-red-50 text-red-700 border-red-200';
+        infoBox.textContent = `⛔ Tab Lapor Harian wajib menggunakan tarikh hari ini sahaja (${bounds.todayDisplay}). Untuk tambah 1 minggu ke depan (Isnin - Jumaat), sila gunakan tab Lapor Mingguan.`;
+        infoBox.classList.remove('hidden');
+        return false;
+      }
+
+      // Jika status adalah Tidak Hadir pada Tab Lapor Harian: bebas had masa & GPS pada tarikh hari ini
       if (status === 'Tidak Hadir') {
         if (staffGpsPanel) staffGpsPanel.classList.add('hidden');
         submitBtn.disabled = false;
         submitText.textContent = 'Hantar Laporan';
         infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-blue-50 text-blue-700 border-blue-200';
-        infoBox.textContent = 'ℹ️ Status Tidak Hadir dikecualikan daripada had waktu dan semakan lokasi GPS.';
+        infoBox.textContent = `ℹ️ Status Tidak Hadir (Harian: ${bounds.todayDisplay}) dikecualikan daripada had waktu dan semakan lokasi GPS.`;
         infoBox.classList.remove('hidden');
         return true;
       }
@@ -1881,11 +2019,11 @@
       const now = new Date();
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-      // Semak kategori jawatan: AKP (4:30 pagi - 8:00 pagi) vs Pentadbir & Guru Akademik Biasa (6:00 pagi - 12:30 tengah hari)
+      // Semak kategori jawatan: AKP (4:30 pagi - 8:00 pagi) vs Pentadbir & Guru Akademik Biasa (6:00 pagi - 7:30 pagi)
       const isAKP = jawatanLower.includes('ahli kumpulan pelaksana') || jawatanLower.includes('akp');
       const startMinutes = isAKP ? (4 * 60 + 30) : (6 * 60 + 0);
-      const endMinutes = isAKP ? (8 * 60 + 0) : (12 * 60 + 30);
-      const labelWaktu = isAKP ? '4:30 pagi hingga 8:00 pagi' : '6:00 pagi hingga 12:30 tengah hari';
+      const endMinutes = isAKP ? (8 * 60 + 0) : (7 * 60 + 30);
+      const labelWaktu = isAKP ? '4:30 pagi hingga 8:00 pagi' : '6:00 pagi hingga 7:30 pagi';
 
       const inTimeWindow = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
 
@@ -1900,7 +2038,7 @@
 
       // Waktu sahih, kini semak syarat kedua: Zon Lokasi GPS
       infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-green-50 text-green-700 border-green-200';
-      infoBox.textContent = `✅ Waktu pengisian HADIR dibuka untuk ${jawatan} (${labelWaktu}).`;
+      infoBox.textContent = `✅ Waktu & Tarikh Semasa (${bounds.todayDisplay}) sah untuk ${jawatan} (${labelWaktu}).`;
       infoBox.classList.remove('hidden');
 
       if (!currentDeviceGps.inZone) {
@@ -1916,17 +2054,37 @@
 
     // Mulakan jam masa nyata setiap 1 saat
     setInterval(updateRealtimeClock, 1000);
+    updateDatePickerConstraints();
     updateRealtimeClock();
 
-    // Date validation - only weekdays
+    // Date validation - Tab Lapor Harian (Wajib tarikh hari semasa & Isnin-Jumaat sahaja)
     document.getElementById('report-date').addEventListener('change', function() {
+      if (!this.value) {
+        validateRealtimeAttendanceWindow();
+        return;
+      }
+
+      const bounds = getAttendanceDateBounds();
       const date = new Date(this.value + 'T00:00:00');
       const day = date.getDay();
-      
+
+      // 1. Sekat Sabtu (6) dan Ahad (0)
       if (day === 0 || day === 6) {
-        showToast('⚠️ Sila pilih hari bekerja (Isnin-Jumaat)', 'error');
-        this.value = '';
+        showToast('⛔ Hari Sabtu dan Ahad dikunci! Hanya hari bekerja (Isnin hingga Jumaat) dibenarkan.', 'error');
+        this.value = bounds.isTodayWeekend ? '' : bounds.todayYMD;
+        validateRealtimeAttendanceWindow();
+        return;
       }
+
+      // 2. Tab Lapor Harian wajib tarikh hari ini sahaja (tiada backdate & tiada tarikh akan datang)
+      if (this.value !== bounds.todayYMD) {
+        showToast(`⛔ Lapor Harian hanya dibenarkan pada tarikh hari semasa sahaja (${bounds.todayDisplay}). Untuk mengisi 1 minggu ke depan (Isnin - Jumaat), sila gunakan Lapor Mingguan!`, 'error');
+        this.value = bounds.isTodayWeekend ? '' : bounds.todayYMD;
+        validateRealtimeAttendanceWindow();
+        return;
+      }
+
+      validateRealtimeAttendanceWindow();
     });
 
     // Status change handler
@@ -1942,6 +2100,7 @@
         reasonInput.required = false;
         reasonInput.value = '';
       }
+      updateDatePickerConstraints();
       validateRealtimeAttendanceWindow();
     });
 
@@ -1965,7 +2124,7 @@
       }
 
       if (!validateRealtimeAttendanceWindow()) {
-        showToast('⛔ Tidak dapat menghantar laporan: Pastikan anda berada di dalam waktu kehadiran dan di dalam zon GPS Pejabat atau Dewan.', 'error');
+        showToast('⛔ Tidak dapat menghantar laporan: Sila pastikan tarikh, waktu kehadiran, dan zon GPS mematuhi syarat.', 'error');
         return;
       }
       
@@ -2024,9 +2183,8 @@
           document.getElementById('position-display').classList.add('hidden');
           document.getElementById('reason-container').classList.add('hidden');
           
-          // Reset date to today
-          const today = new Date().toISOString().split('T')[0];
-          document.getElementById('report-date').value = today;
+          // Kemas kini semula kekangan tarikh ke hari semasa
+          updateDatePickerConstraints();
           
         } else {
           throw new Error(result.message || 'Gagal menghantar laporan');
@@ -2045,15 +2203,12 @@
       }
     });
 
-    // Set default date to today
-    const today = new Date();
-    const formattedDate = today.toISOString().split('T')[0];
-    document.getElementById('report-date').value = formattedDate;
+    // Tetapkan tarikh lalai dan kekangan kalendar semasa halaman dimuatkan
+    updateDatePickerConstraints();
 
     // Load staff data & GPS zones on page load
     loadStaffFromCSV();
     loadGpsZonesFromSheet();
-    startGpsMonitoring();
-  </script>
+    startGpsMonitoring();  </script>
 </body>
 </html>
