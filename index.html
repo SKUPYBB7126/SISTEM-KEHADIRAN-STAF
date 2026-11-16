@@ -390,7 +390,7 @@
               <div id="staff-gps-badge" class="px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
                 🛰️ Sedang mengesan isyarat satelit GPS telefon anda...
               </div>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+             <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
                 <div class="bg-white p-2.5 rounded-lg border border-gray-200">
                   <span class="text-gray-500 block">Jarak ke Titik Tengah Zon (Pejabat & Dewan):</span>
                   <span id="dist-zon-text" class="font-bold text-gray-800 text-sm">-- meter</span>
@@ -398,6 +398,10 @@
                 <div class="bg-white p-2.5 rounded-lg border border-gray-200">
                   <span class="text-gray-500 block">Ralat Ketepatan Satelit:</span>
                   <span id="staff-gps-accuracy" class="font-bold text-gray-800 text-sm">± -- meter</span>
+                </div>
+                <div class="bg-white p-2.5 rounded-lg border border-gray-200">
+                  <span class="text-gray-500 block">Perisai Anti-Fake GPS & VPN:</span>
+                  <span id="staff-security-status" class="font-bold text-teal-700 text-sm">🛡️ Memeriksa...</span>
                 </div>
               </div>
             </div>
@@ -1616,13 +1620,14 @@
       radius: 30
     };
 
-    // Konfigurasi Penstabilan Satelit (Elak Lompatan Koordinat Awal / GPS Jump)
+   // Konfigurasi Penstabilan Satelit & Perisai Anti-Fake GPS / Anti-VPN
     const GPS_STABILIZE_SECONDS = 10; // Wajib stabil 10 saat sebelum buka akses
     const MAX_GPS_ACCURACY_METERS = 25; // Ralat ketepatan satelit mesti <= 25 meter
     let gpsStabilizeRemaining = GPS_STABILIZE_SECONDS;
     let gpsWatchId = null;
+    let gpsReadingHistory = [];
 
-    // State Kedudukan Semasa Peranti
+    // State Kedudukan & Keselamatan Semasa Peranti
     let currentDeviceGps = {
       lat: null,
       lng: null,
@@ -1630,10 +1635,147 @@
       inZone: false,
       isStabilizing: true,
       isAccuracyGood: false,
+      isFakeGpsDetected: false,
+      fakeGpsReason: '',
+      isVpnDetected: false,
+      vpnReason: '',
+      ipCountry: 'MY',
+      ipIsp: '',
       zoneName: '',
       distZon: null,
       error: null
     };
+
+    // 1. Fungsi Semakan Anti-VPN, Proksi & Zon Waktu Malaysia
+    async function checkVpnAndNetworkSecurity() {
+      try {
+        // Semak Zon Waktu Peranti (Wajib UTC+8 Malaysia)
+        const tzOffset = new Date().getTimezoneOffset(); // Malaysia UTC+8 adalah -480
+        const tzName = (Intl.DateTimeFormat().resolvedOptions().timeZone || '').toLowerCase();
+        if (tzOffset !== -480 || (tzName && !tzName.includes('kuala_lumpur') && !tzName.includes('kuching') && !tzName.includes('singapore') && !tzName.includes('asia'))) {
+          currentDeviceGps.isVpnDetected = true;
+          currentDeviceGps.vpnReason = 'Zon waktu peranti bukan waktu Malaysia (UTC+8). Sila matikan VPN/Proksi.';
+          evaluateGpsPosition();
+          return;
+        }
+
+        // Semak Alamat IP & Pembekal Rangkaian (ISP) untuk kesan VPN / Server Luar Negara
+        const response = await fetch('https://ipwho.is/', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+
+        if (data && data.success !== false) {
+          const countryCode = (data.country_code || 'MY').toUpperCase();
+          const ispName = ((data.connection && data.connection.isp) || data.isp || '').toLowerCase();
+          const orgName = ((data.connection && data.connection.org) || data.org || '').toLowerCase();
+          const combinedNet = `${ispName} ${orgName}`;
+
+          currentDeviceGps.ipCountry = countryCode;
+          currentDeviceGps.ipIsp = (data.connection && data.connection.isp) || '';
+
+          // Senarai kata kunci pelayan VPN / Proksi / Pusat Data
+          const vpnKeywords = [
+            'vpn', 'proxy', 'hosting', 'datacenter', 'data center', 'digitalocean',
+            'linode', 'vultr', 'choopa', 'm247', 'hetzner', 'ovh', 'leaseweb',
+            'zenlayer', 'nord', 'expressvpn', 'surfshark', 'proton', 'cyberghost',
+            'windscribe', 'mullvad', 'private internet', 'cloudflare', 'tor exit'
+          ];
+
+          const matchedVpnKeyword = vpnKeywords.find(kw => combinedNet.includes(kw));
+          const securityFlag = data.security && (data.security.vpn || data.security.proxy || data.security.tor || data.security.hosting);
+
+          if (countryCode !== 'MY') {
+            currentDeviceGps.isVpnDetected = true;
+            currentDeviceGps.vpnReason = `Alamat IP luar negara dikesan (${data.country || countryCode}). Sila matikan VPN!`;
+          } else if (securityFlag || matchedVpnKeyword) {
+            currentDeviceGps.isVpnDetected = true;
+            currentDeviceGps.vpnReason = `Rangkaian VPN / Proksi dikesan (${currentDeviceGps.ipIsp || 'Server VPN'}). Sila matikan VPN!`;
+          } else {
+            currentDeviceGps.isVpnDetected = false;
+            currentDeviceGps.vpnReason = '';
+          }
+          evaluateGpsPosition();
+        }
+      } catch (err) {
+        console.log('ℹ️ Semakan rangkaian IP selesai:', err.message);
+      }
+    }
+
+    // 2. Fungsi Semakan Ketulenan Satelit (Anti-Fake GPS / Mock Location / Teleportasi)
+    function analyzeGpsAuthenticity(pos) {
+      const coords = pos.coords;
+      const nowMs = Date.now();
+
+      // (a) Semak jika fungsi Geolocation pelayar telah diubah suai oleh ekstensi Fake GPS / Webdriver
+      const geoStr = (navigator.geolocation && navigator.geolocation.getCurrentPosition)
+        ? navigator.geolocation.getCurrentPosition.toString() : '';
+      if (navigator.webdriver || (geoStr && !geoStr.includes('[native code]'))) {
+        currentDeviceGps.isFakeGpsDetected = true;
+        currentDeviceGps.fakeGpsReason = 'Manipulasi skrip lokasi / ekstensi Fake GPS dikesan pada pelayar!';
+        return false;
+      }
+
+      // (b) Semak ralat ketepatan satelit yang mustahil secara fizikal (< 0.8 meter atau tepat 0)
+      if (coords.accuracy <= 0 || coords.accuracy < 0.8) {
+        currentDeviceGps.isFakeGpsDetected = true;
+        currentDeviceGps.fakeGpsReason = `Bacaan ralat satelit tidak semula jadi (±${coords.accuracy}m) — Fake GPS dikesan!`;
+        return false;
+      }
+
+      // (c) Semak anomali altitud & kelajuan palsu yang lazim pada aplikasi Mock GPS
+      if ((coords.speed !== null && coords.speed < 0) ||
+          (coords.altitude === 0 && coords.altitudeAccuracy === 0)) {
+        currentDeviceGps.isFakeGpsDetected = true;
+        currentDeviceGps.fakeGpsReason = 'Parameter sensor altitud/kelajuan palsu (Mock Location) dikesan!';
+        return false;
+      }
+
+      // (d) Semak perbezaan cap masa (Timestamp Spoofing) melebihi 3 minit
+      if (pos.timestamp && Math.abs(nowMs - pos.timestamp) > 180000) {
+        currentDeviceGps.isFakeGpsDetected = true;
+        currentDeviceGps.fakeGpsReason = 'Cap masa satelit tidak sepadan dengan waktu sebenar (Mock GPS dikesan)!';
+        return false;
+      }
+
+      // (e) Semak kelajuan lompatan "Teleportasi" antara bacaan (contohnya melompat dari kuarters ke pejabat)
+      if (gpsReadingHistory.length > 0) {
+        const last = gpsReadingHistory[gpsReadingHistory.length - 1];
+        const distJump = calculateHaversineMeters(last.lat, last.lng, coords.latitude, coords.longitude);
+        const timeDiffSec = Math.max((nowMs - last.time) / 1000, 0.5);
+
+        // Jika kedua-dua bacaan mempunyai ketepatan <= 30m tetapi berpindah > 40m dengan kelajuan > 22 m/s (80 km/j)
+        if (last.accuracy <= 30 && coords.accuracy <= 30 && distJump !== null && distJump > 40 && (distJump / timeDiffSec) > 22) {
+          currentDeviceGps.isFakeGpsDetected = true;
+          currentDeviceGps.fakeGpsReason = `Lompatan lokasi mendadak sejauh ${Math.round(distJump)}m (Teleportasi Fake GPS) dikesan!`;
+          return false;
+        }
+      }
+
+      // Simpan sejarah bacaan terkini (maksimum 6 rekod)
+      gpsReadingHistory.push({
+        lat: coords.latitude,
+        lng: coords.longitude,
+        accuracy: coords.accuracy,
+        altitude: coords.altitude,
+        time: nowMs
+      });
+      if (gpsReadingHistory.length > 6) {
+        gpsReadingHistory.shift();
+      }
+
+      // (f) Semak koordinat kaku 100% tanpa sebarang sensor altitud & ralat bulat sempurna
+      if (gpsReadingHistory.length >= 5) {
+        const allIdenticalCoords = gpsReadingHistory.every(r => r.lat === coords.latitude && r.lng === coords.longitude);
+        const isExactIntegerAcc = Number.isInteger(coords.accuracy) && coords.accuracy <= 5;
+        if (allIdenticalCoords && isExactIntegerAcc && coords.altitude === null && coords.speed === null) {
+          currentDeviceGps.isFakeGpsDetected = true;
+          currentDeviceGps.fakeGpsReason = 'Koordinat kaku & nilai ketepatan buatan (Emulator / Fake GPS) dikesan!';
+          return false;
+        }
+      }
+
+      return true;
+    }
 
     // Formula Matematik Haversine (Kira jarak dalam meter antara 2 titik GPS)
     function calculateHaversineMeters(lat1, lon1, lat2, lon2) {
@@ -1783,10 +1925,30 @@
       const isAccuracyGood = acc !== null && acc <= MAX_GPS_ACCURACY_METERS;
       currentDeviceGps.isAccuracyGood = isAccuracyGood;
 
-      // Staf hanya disahkan berada di dalam zon selepas 10 saat penstabilan tamat DAN ralat satelit <= 25m
-      const inZon = !currentDeviceGps.isStabilizing && withinRadius && isAccuracyGood;
+      const isSecurityClean = !currentDeviceGps.isFakeGpsDetected && !currentDeviceGps.isVpnDetected;
+
+      // Staf hanya disahkan berada di dalam zon selepas 10s stabil, ralat <= 25m, DAN bebas Fake GPS / VPN
+      const inZon = !currentDeviceGps.isStabilizing && withinRadius && isAccuracyGood && isSecurityClean;
       currentDeviceGps.inZone = inZon;
       currentDeviceGps.zoneName = inZon ? 'Pejabat Sekolah & Dewan Serbaguna' : 'Luar Kawasan Dibenarkan';
+
+      // Kemas kini Kotak Status Perisai Keselamatan Staf
+      const secStatusEl = document.getElementById('staff-security-status');
+      if (secStatusEl) {
+        if (currentDeviceGps.isVpnDetected) {
+          secStatusEl.className = 'font-bold text-red-600 text-sm';
+          secStatusEl.textContent = '🚫 VPN / Proksi Dikesan!';
+        } else if (currentDeviceGps.isFakeGpsDetected) {
+          secStatusEl.className = 'font-bold text-red-600 text-sm';
+          secStatusEl.textContent = '🚫 Fake GPS Dikesan!';
+        } else if (currentDeviceGps.isStabilizing) {
+          secStatusEl.className = 'font-bold text-amber-600 text-sm';
+          secStatusEl.textContent = '🛡️ Mengimbas Sensor...';
+        } else {
+          secStatusEl.className = 'font-bold text-emerald-700 text-sm';
+          secStatusEl.textContent = '✅ Tulen (Tiada VPN/Fake GPS)';
+        }
+      }
 
       // Kemas kini Panel Penguji Jarak Admin
       const adminCoordsEl = document.getElementById('admin-live-coords');
@@ -1799,7 +1961,13 @@
         adminAccEl.textContent = acc !== null ? `± ${Math.round(acc)}m (Had Ralat ≤${MAX_GPS_ACCURACY_METERS}m)` : '± -- meter';
         adminDistZ.textContent = distZon !== null ? `${distZon.toFixed(1)}m / Had ${gpsZone.radius}m` : 'Belum diset';
 
-        if (lat === null) {
+        if (currentDeviceGps.isVpnDetected) {
+          adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white self-start';
+          adminStatusEl.textContent = '🚫 VPN DIKESAN — AKSES DIKUNCI';
+        } else if (currentDeviceGps.isFakeGpsDetected) {
+          adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white self-start';
+          adminStatusEl.textContent = '🚫 FAKE GPS DIKESAN — AKSES DIKUNCI';
+        } else if (lat === null) {
           adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-white self-start';
           adminStatusEl.textContent = '🛰️ Menunggu bacaan satelit...';
         } else if (currentDeviceGps.isStabilizing) {
@@ -1829,7 +1997,13 @@
         staffAcc.textContent = acc !== null ? `± ${Math.round(acc)} meter (Syarat ≤ ${MAX_GPS_ACCURACY_METERS}m)` : '± -- meter';
 
         const noZoneConfigured = gpsZone.lat === null || gpsZone.lng === null;
-        if (currentDeviceGps.error) {
+        if (currentDeviceGps.isVpnDetected) {
+          staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-red-100 text-red-800 border border-red-300';
+          staffBadge.textContent = `🚫 ${currentDeviceGps.vpnReason}`;
+        } else if (currentDeviceGps.isFakeGpsDetected) {
+          staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-red-100 text-red-800 border border-red-300';
+          staffBadge.textContent = `🚫 ${currentDeviceGps.fakeGpsReason}`;
+        } else if (currentDeviceGps.error) {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-red-100 text-red-800 border border-red-300';
           staffBadge.textContent = `⛔ Ralat GPS: ${currentDeviceGps.error}. Sila aktifkan Location telefon anda.`;
         } else if (noZoneConfigured) {
@@ -1837,7 +2011,7 @@
           staffBadge.textContent = '⚠️ Admin belum menetapkan koordinat Zon pada tab Tetapan Zon GPS.';
         } else if (currentDeviceGps.isStabilizing) {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
-          staffBadge.textContent = `⏳ Menstabilkan ketepatan satelit GPS (${gpsStabilizeRemaining} saat lagi)... Menapis ralat lompatan awal.`;
+          staffBadge.textContent = `⏳ Menstabilkan satelit & mengimbas Fake GPS/VPN (${gpsStabilizeRemaining} saat lagi)...`;
         } else if (lat === null) {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
           staffBadge.textContent = '🛰️ Sedang mendapatkan bacaan tepat satelit GPS...';
@@ -1846,7 +2020,7 @@
           staffBadge.textContent = `⚠️ Ralat ketepatan satelit masih tinggi (±${Math.round(acc)}m). Menunggu bacaan stabil ≤ ±${MAX_GPS_ACCURACY_METERS}m...`;
         } else if (currentDeviceGps.inZone) {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-green-100 text-green-800 border border-green-300';
-          staffBadge.textContent = '✅ Lokasi Sahih & Stabil: Anda berada di dalam zon Pejabat Sekolah & Dewan Serbaguna.';
+          staffBadge.textContent = '✅ Lokasi Sahih, Stabil & Bebas Fake GPS/VPN: Anda berada di dalam zon Pejabat Sekolah & Dewan Serbaguna.';
         } else {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-red-100 text-red-800 border border-red-300';
           staffBadge.textContent = '⛔ Anda berada di luar radius Pejabat Sekolah & Dewan Serbaguna. Butang Hantar dikunci.';
@@ -1861,6 +2035,7 @@
       if (!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          analyzeGpsAuthenticity(pos);
           currentDeviceGps.lat = pos.coords.latitude;
           currentDeviceGps.lng = pos.coords.longitude;
           currentDeviceGps.accuracy = pos.coords.accuracy;
@@ -1872,7 +2047,7 @@
       );
     }
 
-    // Mulakan pemantauan GPS berterusan dengan tempoh penstabilan 10 saat
+    // Mulakan pemantauan GPS berterusan dengan tempoh penstabilan 10 saat & imbasan Anti-Fake GPS/VPN
     function startGpsMonitoring() {
       if (!navigator.geolocation) {
         currentDeviceGps.error = 'Peranti tidak menyokong GPS';
@@ -1880,10 +2055,15 @@
         return;
       }
 
-      // Reset tempoh penstabilan 10 saat supaya bacaan lompatan awal tidak terus diterima
+      // Reset tempoh penstabilan 10 saat & rekod sejarah bacaan
       gpsStabilizeRemaining = GPS_STABILIZE_SECONDS;
+      gpsReadingHistory = [];
       currentDeviceGps.isStabilizing = true;
+      currentDeviceGps.isFakeGpsDetected = false;
+      currentDeviceGps.fakeGpsReason = '';
       currentDeviceGps.inZone = false;
+
+      checkVpnAndNetworkSecurity();
 
       if (gpsWatchId !== null) {
         navigator.geolocation.clearWatch(gpsWatchId);
@@ -1893,6 +2073,7 @@
 
       gpsWatchId = navigator.geolocation.watchPosition(
         (pos) => {
+          analyzeGpsAuthenticity(pos);
           currentDeviceGps.lat = pos.coords.latitude;
           currentDeviceGps.lng = pos.coords.longitude;
           currentDeviceGps.accuracy = pos.coords.accuracy;
@@ -2107,7 +2288,25 @@
         return false;
       }
 
-      // Waktu sahih, kini semak syarat kedua: Penstabilan 10s, Ketepatan Satelit & Zon Lokasi GPS
+// Waktu sahih, kini semak syarat kedua: Anti-VPN, Anti-Fake GPS, Penstabilan 10s & Zon Lokasi GPS
+      if (currentDeviceGps.isVpnDetected) {
+        submitBtn.disabled = true;
+        submitText.textContent = '🚫 Rangkaian VPN Dikesan (Hantar Dikunci)';
+        infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-red-50 text-red-700 border-red-200';
+        infoBox.textContent = `🚫 Akses Ditolak: ${currentDeviceGps.vpnReason}`;
+        infoBox.classList.remove('hidden');
+        return false;
+      }
+
+      if (currentDeviceGps.isFakeGpsDetected) {
+        submitBtn.disabled = true;
+        submitText.textContent = '🚫 Fake GPS / Lokasi Palsu Dikesan (Hantar Dikunci)';
+        infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-red-50 text-red-700 border-red-200';
+        infoBox.textContent = `🚫 Akses Ditolak: ${currentDeviceGps.fakeGpsReason}`;
+        infoBox.classList.remove('hidden');
+        return false;
+      }
+
       infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-green-50 text-green-700 border-green-200';
       infoBox.textContent = `✅ Waktu & Tarikh Semasa (${bounds.todayDisplay}) sah untuk ${jawatan} (${labelWaktu}).`;
       infoBox.classList.remove('hidden');
@@ -2135,7 +2334,6 @@
       submitText.textContent = `Hantar Laporan (${currentDeviceGps.zoneName})`;
       return true;
     }
-
     // Mulakan jam masa nyata setiap 1 saat
     setInterval(updateRealtimeClock, 1000);
     updateDatePickerConstraints();
