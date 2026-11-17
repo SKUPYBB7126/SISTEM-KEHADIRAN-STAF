@@ -247,6 +247,108 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
     }
+
+    /* Tetapan Khas Cetakan Kertas A4 Menegak (Portrait) */
+    #print-mount {
+      display: none;
+    }
+
+    .a4-page {
+      width: 210mm;
+      min-height: 285mm;
+      margin: 0 auto 20px auto;
+      padding: 12mm 14mm;
+      background: #ffffff;
+      color: #0f172a;
+      box-sizing: border-box;
+      font-family: 'Outfit', Arial, sans-serif;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .a4-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      table-layout: fixed;
+    }
+
+    .a4-table th,
+    .a4-table td {
+      border: 1px solid #334155;
+      padding: 5px 6px;
+      vertical-align: middle;
+      word-wrap: break-word;
+    }
+
+    .a4-table th {
+      background-color: #f1f5f9 !important;
+      color: #0f172a !important;
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      text-align: center;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .a4-table td {
+      font-size: 10.5px;
+      color: #0f172a;
+    }
+
+    .a4-table td.catatan-cell {
+      font-size: 8.5px;
+      line-height: 1.25;
+    }
+
+    .text-late-red {
+      color: #dc2626 !important;
+      font-weight: 800 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 8mm;
+      }
+
+      body {
+        background: #ffffff !important;
+        background-image: none !important;
+        color: #000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      #app,
+      #print-preview-modal {
+        display: none !important;
+      }
+
+      #print-mount {
+        display: block !important;
+        width: 100% !important;
+      }
+
+      .a4-page {
+        width: 100% !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 4mm 6mm !important;
+        box-shadow: none !important;
+        page-break-after: always;
+        break-after: page;
+      }
+
+      .a4-page:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+    }
   </style>
 <script src="/_sdk/ea2423e0a01a756f.data_sdk.js" integrity="sha512-Sg0g23oG9zpxeVGJw6Q935Wt19sv7pbBtYnmz0dqpxqMmhlUFeBYJjrBQheq1xeE/u69m7uZ8NgZRq4P2+K57w=="></script></head>
 <body class="h-full">
@@ -363,7 +465,7 @@
               <div id="time-window-info" class="hidden mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border"></div>
             </div>
 
-            <!-- Status Kehadiran -->
+           <!-- Status Kehadiran -->
             <div class="space-y-2">
               <label for="attendance-status" class="block text-sm font-semibold text-gray-700">Status Kehadiran <span class="text-red-500">*</span></label>
               <select id="attendance-status" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white">
@@ -371,6 +473,37 @@
                 <option value="Hadir">✅ Hadir</option>
                 <option value="Tidak Hadir">❌ Tidak Hadir</option>
               </select>
+            </div>
+
+            <!-- Panel Pilihan Masa Hadir & Masa Balik (Hanya Untuk Status Hadir) -->
+            <div id="hadir-time-options" class="hidden space-y-3 p-4 rounded-xl border-2 border-indigo-200 bg-gradient-to-r from-indigo-50/70 to-cyan-50/70">
+              <!-- Nota Kecil Status Rekod Masa Hadir Hari Ini -->
+              <div id="existing-hadir-note" class="px-3.5 py-2.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                ℹ️ Sila pilih Nama Staf terlebih dahulu untuk menyemak rekod Masa Hadir hari ini.
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- Kotak 1: Masa Hadir (Real-Time) -->
+                <div class="bg-white p-3.5 rounded-xl border border-gray-200 flex flex-col justify-between">
+                  <label class="flex items-start gap-2.5 cursor-pointer">
+                    <input type="checkbox" id="check-isi-hadir" checked onchange="handleHadirModeChange()" class="mt-1 w-4 h-4 text-teal-600 rounded focus:ring-teal-500">
+                    <div>
+                      <span class="text-sm font-bold text-gray-800 block">1. Rekod Masa Hadir (Real-Time)</span>
+                      <span id="label-masa-hadir-semasa" class="text-xs text-gray-500 block mt-0.5">Mengikut jam semasa & wajib di dalam Zon GPS sekolah.</span>
+                    </div>
+                  </label>
+                </div>
+
+                <!-- Kotak 2: Masa Balik (Waktu Bebas - Tanpa Sekatan GPS) -->
+                <div class="bg-white p-3.5 rounded-xl border border-gray-200 space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <label for="masa-balik-input" class="text-sm font-bold text-gray-800">2. Masa Balik (Pilihan Bebas)</label>
+                    <button type="button" onclick="clearMasaBalik()" class="text-xs text-red-600 hover:underline font-semibold">Kosongkan</button>
+                  </div>
+                  <input type="time" id="masa-balik-input" onchange="handleHadirModeChange()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono font-bold text-indigo-900">
+                  <p class="text-[11px] text-gray-500 leading-tight">* Boleh diisi sekaligus bersama Masa Hadir atau diisi kemudian pada bila-bila masa (Tidak tertakluk kepada Zon GPS).</p>
+                </div>
+              </div>
             </div>
 
          <!-- Panel Kawalan Zon GPS Staf (Hanya Untuk Status Hadir) -->
@@ -646,10 +779,54 @@
             </div>
           </div>
 
-          <!-- Date Selector -->
-          <div class="mb-6">
-            <label for="check-date" class="block text-sm font-semibold text-gray-700 mb-2">Pilih Tarikh</label>
-            <input type="date" id="check-date" class="w-full max-w-md px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white">
+          <!-- Date Selector & Panel Cetakan Bulanan/Tahunan A4 -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+            <!-- Pilih Tarikh Semak Harian -->
+            <div class="lg:col-span-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <label for="check-date" class="block text-sm font-bold text-gray-800 mb-2">📅 Pilih Tarikh Semakan Harian</label>
+              <input type="date" id="check-date" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-white">
+              <p class="text-xs text-gray-500 mt-2">Pilih tarikh untuk menyemak kad ringkasan kehadiran di bawah.</p>
+            </div>
+
+            <!-- Panel Print Bulanan & Tahunan (A4 Menegak) -->
+            <div class="lg:col-span-8 bg-gradient-to-r from-indigo-50 via-cyan-50 to-emerald-50 p-4 rounded-xl border-2 border-teal-200 space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm font-extrabold text-gray-800 uppercase tracking-wide">🖨️ Cetakan Rekod Kedatangan Bulanan & Tahunan (Format A4 Menegak)</h3>
+                  <p class="text-xs text-gray-600">Hanya bulan & tahun sebelum serta semasa sahaja dipaparkan (tiada bulan/tahun akan datang)</p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label for="print-year" class="block text-xs font-bold text-gray-700 mb-1">Tahun (Semasa / Lepas)</label>
+                  <select id="print-year" onchange="handlePrintYearMonthChange()" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-semibold bg-white"></select>
+                </div>
+                <div>
+                  <label for="print-month" class="block text-xs font-bold text-gray-700 mb-1">Bulan (Semasa / Lepas)</label>
+                  <select id="print-month" onchange="populatePrintDayScope()" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-semibold bg-white"></select>
+                </div>
+                <div>
+                  <label for="print-day-scope" class="block text-xs font-bold text-gray-700 mb-1">Skop Hari Bekerja (Isnin - Jumaat)</label>
+                  <select id="print-day-scope" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-semibold bg-white"></select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <button type="button" id="btn-print-guru" onclick="handlePrintAttendance('GURU')" class="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-xs md:text-sm">
+                  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                  </svg>
+                  <span>Print Guru Akademik & Pentadbir (A4)</span>
+                </button>
+                <button type="button" id="btn-print-akp" onclick="handlePrintAttendance('AKP')" class="px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-xs md:text-sm">
+                  <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                  </svg>
+                  <span>Print Ahli Kumpulan Pelaksana / AKP (A4)</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- Loading Indicator -->
@@ -824,9 +1001,33 @@
     <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
   </div>
 
+  <!-- Modal Pratonton Cetakan A4 -->
+  <div id="print-preview-modal" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm overflow-y-auto p-4">
+    <div class="max-w-4xl mx-auto">
+      <div class="bg-slate-900 text-white px-5 py-3.5 rounded-t-2xl flex flex-wrap items-center justify-between gap-3 sticky top-0 z-10 border-b border-slate-700">
+        <div>
+          <h3 id="print-modal-title" class="font-bold text-base">Pratonton Cetakan A4 Menegak</h3>
+          <p class="text-xs text-slate-300">Pastikan tetapan kertas pada tetingkap pencetak ialah A4 (Portrait)</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="window.print()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow">
+            🖨️ Cetak Sekarang (A4)
+          </button>
+          <button type="button" onclick="closePrintPreviewModal()" class="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl text-xs">
+            Tutup
+          </button>
+        </div>
+      </div>
+      <div id="print-preview-body" class="bg-slate-200 p-4 md:p-6 rounded-b-2xl overflow-x-auto"></div>
+    </div>
+  </div>
+
+  <!-- Ruang Cetakan Sebenar Semasa window.print() -->
+  <div id="print-mount"></div>
+
   <script>
     // ✅ CONFIGURATION - Google Apps Script & CSV URLs
-    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwpoyXwRhwEaMUUaX-FMTV1RklAqKvN6Nt5FWf3Z22Wbs2H1IHsEJDPij2DEGJ6vN5e/exec';
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzS8HIy6uXAsTih-QR5Wbv4PguGlqcf2tR6i3_c2LjAzhkKsC1gy-rxr435guNKSvch1Q/exec';
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRUfMMU_QAAPE9Y3bp1DtBCy7WSNYP5U3t6D8Jixmj2TpQpj_Qsns27s3ZMoboQwpHKA0Y3j2Db2k24/pub?gid=0&single=true&output=csv';
 
     let staffData = {};
@@ -1233,7 +1434,7 @@
               </div>
             `;
           } else {
-            // Format masa real-time untuk kad Hadir
+            // Format masa real-time untuk kad Hadir (Hijau = Menepati Masa, Merah = Lewat)
             let paparanMasa = '';
             if (type === 'hadir') {
               const sumberMasa = item.masa_kehadiran || item.masa || item.timestamp || '';
@@ -1246,12 +1447,59 @@
                   teksMasa = sumberMasa;
                 }
               }
+
+              // Tentukan had waktu mengikut jawatan staf (AKP: 8:00 pagi, Pentadbir/Guru: 7:30 pagi)
+              const jawatanStaf = String(item.jawatan || staffData[item.nama_staf] || '').toLowerCase();
+              const isStafAKP = jawatanStaf.includes('ahli kumpulan pelaksana') || jawatanStaf.includes('akp');
+              const hadMinit = isStafAKP ? (8 * 60 + 0) : (7 * 60 + 30);
+
+              // Kira minit masa penghantaran daripada teks masa atau timestamp
+              let minitHantar = null;
+              const padananMasa = String(teksMasa).match(/(\d{1,2})[:.](\d{2})/);
+              if (padananMasa) {
+                let jam = parseInt(padananMasa[1], 10);
+                const minit = parseInt(padananMasa[2], 10);
+                const teksBesar = String(teksMasa).toUpperCase();
+                const isPM = teksBesar.includes('PTG') || teksBesar.includes('PM') || teksBesar.includes('PETANG') || teksBesar.includes('MALAM');
+                const isAM = teksBesar.includes('PG') || teksBesar.includes('AM') || teksBesar.includes('PAGI');
+                if (isPM && jam < 12) jam += 12;
+                if (isAM && jam === 12) jam = 0;
+                minitHantar = jam * 60 + minit;
+              } else if (item.timestamp) {
+                const tarikhTs = new Date(item.timestamp);
+                if (!isNaN(tarikhTs.getTime())) {
+                  minitHantar = tarikhTs.getHours() * 60 + tarikhTs.getMinutes();
+                }
+              }
+
+             const isLewat = (minitHantar !== null && minitHantar > hadMinit) || String(teksMasa).toUpperCase().includes('LEWAT');
+              const teksMasaBersih = String(teksMasa).replace(/\(LEWAT\)/gi, '').replace(/HADIR LEWAT/gi, '').trim();
+              const kelasWarnaMasa = isLewat
+                ? 'bg-red-100 text-red-700 border-red-400'
+                : 'bg-green-100 text-green-800 border-green-300';
+              const kelasIkonMasa = isLewat ? 'text-red-600' : 'text-green-700';
+              const badgeHadirLewat = isLewat
+                ? `<span class="ml-1 px-2 py-0.5 bg-red-600 text-white text-[10px] font-extrabold rounded-md uppercase tracking-wider shadow-sm">HADIR LEWAT</span>`
+                : '';
+
+              const rekodTempatan = getLocalStaffAttendanceCache(document.getElementById('check-date').value, item.nama_staf);
+              const teksMasaBalik = item.masa_balik || (rekodTempatan ? rekodTempatan.masa_balik : '') || '';
+              const badgeMasaBalik = teksMasaBalik ? `
+                <div class="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-100 text-indigo-800 text-xs font-bold rounded-lg border border-indigo-300">
+                  <span>Masa Balik: ${teksMasaBalik}</span>
+                </div>
+              ` : '';
+
               paparanMasa = `
-                <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-lg border border-green-300">
-                  <svg class="w-3.5 h-3.5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                  <span>Masa: ${teksMasa}</span>
+                <div class="flex flex-wrap gap-1.5">
+                  <div class="mt-2 inline-flex items-center flex-wrap gap-1.5 px-2.5 py-1 ${kelasWarnaMasa} text-xs font-bold rounded-lg border">
+                    <svg class="w-3.5 h-3.5 ${kelasIkonMasa}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Masa Hadir: <strong class="${isLewat ? 'text-red-600 font-extrabold' : ''}">${teksMasaBersih}</strong></span>
+                    ${badgeHadirLewat}
+                  </div>
+                  ${badgeMasaBalik}
                 </div>
               `;
             }
@@ -1484,6 +1732,132 @@
       }
     });
 
+   // State Rekod Kehadiran Hari Ini bagi Staf yang Dipilih
+    let currentStaffTodayRecord = null;
+    let isCheckingTodayRecord = false;
+
+    function getLocalStaffAttendanceCache(dateYMD, staffName) {
+      try {
+        const raw = localStorage.getItem('skup_daily_records_' + dateYMD);
+        if (!raw) return null;
+        const map = JSON.parse(raw);
+        return map[staffName] || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function saveLocalStaffAttendanceCache(dateYMD, staffName, recordObj) {
+      try {
+        const key = 'skup_daily_records_' + dateYMD;
+        const raw = localStorage.getItem(key);
+        const map = raw ? JSON.parse(raw) : {};
+        map[staffName] = { ...(map[staffName] || {}), ...recordObj };
+        localStorage.setItem(key, JSON.stringify(map));
+      } catch (e) {}
+    }
+
+    function formatTimeInputToMalay(time24) {
+      if (!time24) return '';
+      const parts = time24.split(':');
+      if (parts.length < 2) return time24;
+      let h = parseInt(parts[0], 10);
+      const m = parts[1];
+      const ampm = h >= 12 ? 'PTG' : 'PG';
+      h = h % 12;
+      if (h === 0) h = 12;
+      return `${String(h).padStart(2, '0')}:${m}:00 ${ampm}`;
+    }
+
+    function clearMasaBalik() {
+      const mbInput = document.getElementById('masa-balik-input');
+      if (mbInput) mbInput.value = '';
+      handleHadirModeChange();
+    }
+
+    function handleHadirModeChange() {
+      validateRealtimeAttendanceWindow();
+    }
+
+    async function checkSelectedStaffTodayRecord() {
+      const staffName = document.getElementById('staff-name').value;
+      const bounds = getAttendanceDateBounds();
+      const noteEl = document.getElementById('existing-hadir-note');
+      const checkIsiHadir = document.getElementById('check-isi-hadir');
+
+      currentStaffTodayRecord = null;
+
+      if (!staffName) {
+        if (noteEl) {
+          noteEl.className = 'px-3.5 py-2.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
+          noteEl.textContent = 'ℹ️ Sila pilih Nama Staf terlebih dahulu untuk menyemak rekod Masa Hadir hari ini.';
+        }
+        validateRealtimeAttendanceWindow();
+        return;
+      }
+
+      // Semak cache tempatan dahulu untuk respons pantas
+      const localRec = getLocalStaffAttendanceCache(bounds.todayYMD, staffName);
+      if (localRec && localRec.status_kehadiran === 'Hadir' && localRec.masa_kehadiran) {
+        currentStaffTodayRecord = localRec;
+      }
+
+      if (noteEl) {
+        noteEl.className = 'px-3.5 py-2.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200';
+        noteEl.textContent = '🔄 Menyemak rekod Masa Hadir anda bagi hari ini...';
+      }
+
+      try {
+        isCheckingTodayRecord = true;
+        const url = `${GOOGLE_APPS_SCRIPT_URL}?action=getByDate&date=${bounds.todayYMD}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.status === 'success' && Array.isArray(result.data)) {
+          const found = result.data.find(r => r.nama_staf === staffName && r.status_kehadiran === 'Hadir');
+          if (found) {
+            let teksMasaHadir = found.masa_kehadiran || '';
+            if (!teksMasaHadir && found.timestamp) {
+              const dt = new Date(found.timestamp);
+              if (!isNaN(dt.getTime())) {
+                teksMasaHadir = dt.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).toUpperCase();
+              }
+            }
+            if (teksMasaHadir) {
+              currentStaffTodayRecord = {
+                masa_kehadiran: teksMasaHadir,
+                masa_balik: found.masa_balik || (localRec ? localRec.masa_balik : '') || '',
+                zon_gps: found.zon_gps || 'Pejabat Sekolah & Dewan Serbaguna',
+                status_kehadiran: 'Hadir'
+              };
+              saveLocalStaffAttendanceCache(bounds.todayYMD, staffName, currentStaffTodayRecord);
+            }
+          }
+        }
+      } catch (err) {
+        console.log('ℹ️ Menggunakan semakan rekod tempatan:', err.message);
+      } finally {
+        isCheckingTodayRecord = false;
+      }
+
+      if (currentStaffTodayRecord && currentStaffTodayRecord.masa_kehadiran) {
+        const infoBalik = currentStaffTodayRecord.masa_balik ? ` | Masa Balik direkodkan: ${currentStaffTodayRecord.masa_balik}` : '';
+        if (noteEl) {
+          noteEl.className = 'px-3.5 py-2.5 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300';
+          noteEl.textContent = `✅ NOTA PERINGATAN: Anda telah mengisi Masa Hadir hari ini pada jam ${currentStaffTodayRecord.masa_kehadiran}${infoBalik}. Anda kini boleh memilih Masa Balik sahaja pada bila-bila masa (tidak tertakluk kepada Zon GPS sekolah).`;
+        }
+        if (checkIsiHadir) checkIsiHadir.checked = false;
+      } else {
+        if (noteEl) {
+          noteEl.className = 'px-3.5 py-2.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300';
+          noteEl.textContent = 'ℹ️ NOTA: Anda belum mengisi Masa Hadir hari ini. Sila isi Masa Hadir terlebih dahulu, atau isi Masa Hadir dan Masa Balik sekaligus (Jika isi Masa Balik sahaja tanpa Masa Hadir, penghantaran akan ditolak).';
+        }
+        if (checkIsiHadir) checkIsiHadir.checked = true;
+      }
+
+      validateRealtimeAttendanceWindow();
+    }
+
     // Daily staff name change handler
     document.getElementById('staff-name').addEventListener('change', function() {
       const positionDisplay = document.getElementById('position-display');
@@ -1495,7 +1869,7 @@
       } else {
         positionDisplay.classList.add('hidden');
       }
-      validateRealtimeAttendanceWindow();
+      checkSelectedStaffTodayRecord();
     });
 
     // Weekly form submission
@@ -1622,7 +1996,7 @@
 
    // Konfigurasi Penstabilan Satelit & Perisai Anti-Fake GPS / Anti-VPN
     const GPS_STABILIZE_SECONDS = 10; // Wajib stabil 10 saat sebelum buka akses
-    const MAX_GPS_ACCURACY_METERS = 25; // Ralat ketepatan satelit mesti <= 25 meter
+    const MAX_GPS_ACCURACY_METERS = 10; // Ralat ketepatan satelit wajib <= 10 meter ke bawah sahaja
     let gpsStabilizeRemaining = GPS_STABILIZE_SECONDS;
     let gpsWatchId = null;
     let gpsReadingHistory = [];
@@ -2094,17 +2468,32 @@
       startGpsMonitoring();
     }
 
-    // Fungsi Kemas Kini Jam Masa Nyata, Kiraan Detik Penstabilan GPS 10 Saat & Kawalan Kehadiran
+    // Fungsi Kemas Kini Jam Masa Nyata (Bertukar Merah Jika Lewat), Kiraan Detik Penstabilan GPS 10 Saat & Kawalan Kehadiran
     function updateRealtimeClock() {
       const clockEl = document.getElementById('realtime-clock');
       if (clockEl) {
         const now = new Date();
-        clockEl.textContent = now.toLocaleTimeString('ms-MY', {
+        const teksJamSemasa = now.toLocaleTimeString('ms-MY', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
           hour12: true
         }).toUpperCase();
+
+        const staffNameEl = document.getElementById('staff-name');
+        const selectedStaff = staffNameEl ? staffNameEl.value : '';
+        const jawatanSemasa = (staffData[selectedStaff] || '').toLowerCase();
+        const isAKP = jawatanSemasa.includes('ahli kumpulan pelaksana') || jawatanSemasa.includes('akp');
+        const hadMinit = isAKP ? (8 * 60 + 0) : (7 * 60 + 30);
+        const minitSekarang = now.getHours() * 60 + now.getMinutes();
+        const lewatSekarang = minitSekarang > hadMinit;
+
+        clockEl.textContent = teksJamSemasa;
+        if (lewatSekarang) {
+          clockEl.className = 'text-lg font-extrabold text-red-600 tracking-wider font-mono';
+        } else {
+          clockEl.className = 'text-lg font-bold text-teal-800 tracking-wider font-mono';
+        }
       }
 
       // Kiraan detik 10 saat penstabilan satelit GPS
@@ -2240,9 +2629,17 @@
         return false;
       }
 
+      const hadirTimeOptions = document.getElementById('hadir-time-options');
+      const checkIsiHadirEl = document.getElementById('check-isi-hadir');
+      const masaBalikInputEl = document.getElementById('masa-balik-input');
+      const inginIsiMasaHadir = checkIsiHadirEl ? checkIsiHadirEl.checked : true;
+      const nilaiMasaBalik = masaBalikInputEl ? masaBalikInputEl.value.trim() : '';
+      const sudahAdaMasaHadir = Boolean(currentStaffTodayRecord && currentStaffTodayRecord.masa_kehadiran);
+
       // Jika status adalah Tidak Hadir pada Tab Lapor Harian: bebas had masa & GPS pada tarikh hari ini
       if (status === 'Tidak Hadir') {
         if (staffGpsPanel) staffGpsPanel.classList.add('hidden');
+        if (hadirTimeOptions) hadirTimeOptions.classList.add('hidden');
         submitBtn.disabled = false;
         submitText.textContent = 'Hantar Laporan';
         infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-blue-50 text-blue-700 border-blue-200';
@@ -2251,10 +2648,10 @@
         return true;
       }
 
-      // Paparkan panel GPS apabila pengguna memilih status Hadir
       if (status === 'Hadir') {
-        if (staffGpsPanel) staffGpsPanel.classList.remove('hidden');
+        if (hadirTimeOptions) hadirTimeOptions.classList.remove('hidden');
       } else {
+        if (hadirTimeOptions) hadirTimeOptions.classList.add('hidden');
         if (staffGpsPanel) staffGpsPanel.classList.add('hidden');
       }
 
@@ -2266,6 +2663,43 @@
         return true;
       }
 
+      // KES 1: Staf TIDAK menanda Masa Hadir (ingin isi Masa Balik sahaja)
+      if (!inginIsiMasaHadir) {
+        // Sembunyikan panel GPS kerana pengisian Masa Balik tidak tertakluk kepada Zon GPS sekolah
+        if (staffGpsPanel) staffGpsPanel.classList.add('hidden');
+
+        // Jika staf BELUM mengisi Masa Hadir hari ini tetapi cuba menghantar Masa Balik sahaja -> TOLAK!
+        if (!sudahAdaMasaHadir) {
+          submitBtn.disabled = true;
+          submitText.textContent = '⛔ Ditolak: Masa Hadir Belum Diisi!';
+          infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-red-50 text-red-700 border-red-300';
+          infoBox.textContent = '⛔ PENGHANTARAN DITOLAK: Anda tidak boleh mengisi Masa Balik sahaja kerana anda belum mengisi Masa Hadir hari ini! Sila tandakan "Rekod Masa Hadir (Real-Time)" terlebih dahulu.';
+          infoBox.classList.remove('hidden');
+          return false;
+        }
+
+        // Jika staf sudah ada Masa Hadir tetapi belum memilih waktu pada kotak Masa Balik
+        if (!nilaiMasaBalik) {
+          submitBtn.disabled = true;
+          submitText.textContent = 'Sila Pilih Waktu Masa Balik';
+          infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-amber-50 text-amber-800 border-amber-300';
+          infoBox.textContent = `ℹ️ Masa Hadir anda (${currentStaffTodayRecord.masa_kehadiran}) telah direkodkan. Sila pilih waktu pada ruangan Masa Balik untuk menghantar.`;
+          infoBox.classList.remove('hidden');
+          return false;
+        }
+
+        // Sah untuk hantar Masa Balik sahaja pada bila-bila masa tanpa sekatan Zon GPS
+        submitBtn.disabled = false;
+        submitText.textContent = `Hantar Masa Balik (${formatTimeInputToMalay(nilaiMasaBalik)})`;
+        infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-indigo-50 text-indigo-800 border-indigo-200';
+        infoBox.textContent = `✅ Pengisian Masa Balik (${formatTimeInputToMalay(nilaiMasaBalik)}) sah & tidak tertakluk kepada Zon GPS sekolah. Masa Hadir asal (${currentStaffTodayRecord.masa_kehadiran}) dikekalkan.`;
+        infoBox.classList.remove('hidden');
+        return true;
+      }
+
+      // KES 2: Staf menanda Masa Hadir (sama ada isi Masa Hadir sahaja ATAU isi Masa Hadir + Masa Balik sekaligus)
+      if (staffGpsPanel) staffGpsPanel.classList.remove('hidden');
+
       const jawatan = (staffData[staffName] || '').trim();
       const jawatanLower = jawatan.toLowerCase();
       const now = new Date();
@@ -2273,22 +2707,15 @@
 
       // Semak kategori jawatan: AKP (4:30 pagi - 8:00 pagi) vs Pentadbir & Guru Akademik Biasa (6:00 pagi - 7:30 pagi)
       const isAKP = jawatanLower.includes('ahli kumpulan pelaksana') || jawatanLower.includes('akp');
-      const startMinutes = isAKP ? (4 * 60 + 30) : (6 * 60 + 0);
       const endMinutes = isAKP ? (8 * 60 + 0) : (7 * 60 + 30);
-      const labelWaktu = isAKP ? '4:30 pagi hingga 8:00 pagi' : '6:00 pagi hingga 7:30 pagi';
+      const labelWaktuMula = isAKP ? '4:30 pagi' : '6:00 pagi';
+      const labelWaktuAkhir = isAKP ? '8:00 pagi' : '7:30 pagi';
+      const labelWaktu = `${labelWaktuMula} hingga ${labelWaktuAkhir}`;
 
-      const inTimeWindow = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+      // Tiada kunci had masa: Guru, Pentadbir & AKP boleh mengisi kehadiran walaupun telah melepasi masa ditetapkan
+      const isLateSubmission = currentMinutes > endMinutes;
 
-      if (!inTimeWindow) {
-        submitBtn.disabled = true;
-        submitText.textContent = 'Di Luar Waktu Kehadiran (Hantar Dikunci)';
-        infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-red-50 text-red-700 border-red-200';
-        infoBox.textContent = `⛔ Pengisian HADIR bagi ${jawatan} hanya dibenarkan bermula jam ${labelWaktu}.`;
-        infoBox.classList.remove('hidden');
-        return false;
-      }
-
-// Waktu sahih, kini semak syarat kedua: Anti-VPN, Anti-Fake GPS, Penstabilan 10s & Zon Lokasi GPS
+      // Semak syarat keselamatan: Anti-VPN, Anti-Fake GPS, Penstabilan 10s, Ralat <= 10m & Zon Lokasi GPS
       if (currentDeviceGps.isVpnDetected) {
         submitBtn.disabled = true;
         submitText.textContent = '🚫 Rangkaian VPN Dikesan (Hantar Dikunci)';
@@ -2307,9 +2734,15 @@
         return false;
       }
 
-      infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-green-50 text-green-700 border-green-200';
-      infoBox.textContent = `✅ Waktu & Tarikh Semasa (${bounds.todayDisplay}) sah untuk ${jawatan} (${labelWaktu}).`;
-      infoBox.classList.remove('hidden');
+      if (isLateSubmission) {
+        infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-bold border bg-red-50 text-red-700 border-red-300';
+        infoBox.textContent = `⚠️ HADIR LEWAT: Waktu ditetapkan bagi ${jawatan} ialah ${labelWaktu}. Pengisian kehadiran masih dibuka tetapi Masa Semasa (Real-Time) bertukar MERAH dan ditandakan HADIR LEWAT pada Semak Pengisian.`;
+        infoBox.classList.remove('hidden');
+      } else {
+        infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-green-50 text-green-700 border-green-200';
+        infoBox.textContent = `✅ Menepati Masa (${bounds.todayDisplay}): Waktu pengisian sah untuk ${jawatan} (${labelWaktu}).`;
+        infoBox.classList.remove('hidden');
+      }
 
       if (currentDeviceGps.isStabilizing) {
         submitBtn.disabled = true;
@@ -2320,7 +2753,7 @@
       if (!currentDeviceGps.isAccuracyGood) {
         submitBtn.disabled = true;
         const ralatSemasa = currentDeviceGps.accuracy !== null ? `±${Math.round(currentDeviceGps.accuracy)}m` : '';
-        submitText.textContent = `⚠️ Menunggu Ketepatan Satelit Stabil ${ralatSemasa} (Hantar Dikunci)`;
+        submitText.textContent = `⚠️ Tunggu Ralat Satelit ≤ ${MAX_GPS_ACCURACY_METERS}m (Semasa: ${ralatSemasa})`;
         return false;
       }
 
@@ -2331,9 +2764,13 @@
       }
 
       submitBtn.disabled = false;
-      submitText.textContent = `Hantar Laporan (${currentDeviceGps.zoneName})`;
+      const labelSekaligus = nilaiMasaBalik ? ` + Masa Balik (${formatTimeInputToMalay(nilaiMasaBalik)})` : '';
+      submitText.textContent = isLateSubmission
+        ? `Hantar Laporan — Hadir Lewat (${currentDeviceGps.zoneName})${labelSekaligus}`
+        : `Hantar Laporan (${currentDeviceGps.zoneName})${labelSekaligus}`;
       return true;
     }
+
     // Mulakan jam masa nyata setiap 1 saat
     setInterval(updateRealtimeClock, 1000);
     updateDatePickerConstraints();
@@ -2381,12 +2818,15 @@
         reasonContainer.classList.add('hidden');
         reasonInput.required = false;
         reasonInput.value = '';
+        if (this.value === 'Hadir') {
+          checkSelectedStaffTodayRecord();
+        }
       }
       updateDatePickerConstraints();
       validateRealtimeAttendanceWindow();
     });
 
-    // Daily form submission
+    // Daily form submission (Menyokong Masa Hadir sahaja, Masa Hadir + Masa Balik sekaligus, atau Masa Balik sahaja)
     document.getElementById('attendance-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
@@ -2394,6 +2834,12 @@
       const reportDate = document.getElementById('report-date').value;
       const status = document.getElementById('attendance-status').value;
       const reason = document.getElementById('absence-reason').value;
+      const checkIsiHadirEl = document.getElementById('check-isi-hadir');
+      const masaBalikInputEl = document.getElementById('masa-balik-input');
+      const inginIsiMasaHadir = checkIsiHadirEl ? checkIsiHadirEl.checked : true;
+      const nilaiMasaBalikRaw = masaBalikInputEl ? masaBalikInputEl.value.trim() : '';
+      const masaBalikFormatted = nilaiMasaBalikRaw ? formatTimeInputToMalay(nilaiMasaBalikRaw) : '';
+      const sudahAdaMasaHadir = Boolean(currentStaffTodayRecord && currentStaffTodayRecord.masa_kehadiran);
       
       if (!staffName || !reportDate || !status) {
         showToast('⚠️ Sila lengkapkan semua maklumat wajib', 'error');
@@ -2405,8 +2851,14 @@
         return;
       }
 
+      // Sekat tegas jika cuba isi Masa Balik sahaja tetapi Masa Hadir belum wujud
+      if (status === 'Hadir' && !inginIsiMasaHadir && !sudahAdaMasaHadir) {
+        showToast('⛔ PENGHANTARAN DITOLAK: Anda belum mengisi Masa Hadir hari ini! Sila isi Masa Hadir terlebih dahulu.', 'error');
+        return;
+      }
+
       if (!validateRealtimeAttendanceWindow()) {
-        showToast('⛔ Tidak dapat menghantar laporan: Sila pastikan tarikh, waktu kehadiran, dan zon GPS mematuhi syarat.', 'error');
+        showToast('⛔ Tidak dapat menghantar laporan: Sila pastikan syarat Masa Hadir/Balik, waktu kehadiran, dan zon GPS dipatuhi.', 'error');
         return;
       }
       
@@ -2423,19 +2875,38 @@
       try {
         const now = new Date();
         const timestamp = now.toISOString();
-        const masaKehadiran = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).toUpperCase();
+        const realTimeNow = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).toUpperCase();
         const jawatan = staffData[staffName] || '';
+
+        // Tentukan nilai Masa Kehadiran, Masa Balik & Zon GPS yang akan dihantar
+        let finalMasaKehadiran = '';
+        let finalMasaBalik = '';
+        let finalZonGps = 'Dikecualikan';
+
+        if (status === 'Hadir') {
+          if (inginIsiMasaHadir) {
+            finalMasaKehadiran = realTimeNow;
+            finalMasaBalik = masaBalikFormatted || (currentStaffTodayRecord ? currentStaffTodayRecord.masa_balik : '') || '';
+            finalZonGps = currentDeviceGps.zoneName || 'Pejabat Sekolah & Dewan Serbaguna';
+          } else {
+            // Hanya kemas kini Masa Balik, kekalkan Masa Hadir asal
+            finalMasaKehadiran = currentStaffTodayRecord.masa_kehadiran;
+            finalMasaBalik = masaBalikFormatted;
+            finalZonGps = currentStaffTodayRecord.zon_gps || 'Pejabat Sekolah & Dewan Serbaguna';
+          }
+        }
         
         // Build URL with parameters
         const url = new URL(GOOGLE_APPS_SCRIPT_URL);
         url.searchParams.append('timestamp', timestamp);
-        url.searchParams.append('masa_kehadiran', masaKehadiran);
+        url.searchParams.append('masa_kehadiran', finalMasaKehadiran);
+        url.searchParams.append('masa_balik', finalMasaBalik);
         url.searchParams.append('nama_staf', staffName);
         url.searchParams.append('jawatan', jawatan);
         url.searchParams.append('tarikh_laporan', reportDate);
         url.searchParams.append('status_kehadiran', status);
         url.searchParams.append('sebab_tidak_hadir', status === 'Tidak Hadir' ? reason : '');
-        url.searchParams.append('zon_gps', status === 'Hadir' ? currentDeviceGps.zoneName : 'Dikecualikan');
+        url.searchParams.append('zon_gps', finalZonGps);
         
         console.log('📤 Sending daily attendance:', url.toString());
         
@@ -2454,16 +2925,31 @@
         console.log('📋 Response data:', result);
         
         if (result.status === 'success') {
+          // Simpan ke dalam cache tempatan supaya semakan Masa Hadir & Masa Balik sentiasa terkini
+          saveLocalStaffAttendanceCache(reportDate, staffName, {
+            timestamp,
+            nama_staf: staffName,
+            jawatan,
+            tarikh_laporan: reportDate,
+            status_kehadiran: status,
+            sebab_tidak_hadir: status === 'Tidak Hadir' ? reason : '',
+            masa_kehadiran: finalMasaKehadiran,
+            masa_balik: finalMasaBalik,
+            zon_gps: finalZonGps
+          });
+
           const actionText = result.action === 'update' 
-            ? '✅ Rekod dikemaskini! (Data lama telah digantikan)'
-            : '✅ Rekod baharu berjaya ditambah!';
+            ? '✅ Rekod kehadiran & masa berjaya dikemaskini!'
+            : '✅ Rekod kehadiran baharu berjaya ditambah!';
           
           showToast(actionText, 'success');
           
           // Reset form
           this.reset();
+          currentStaffTodayRecord = null;
           document.getElementById('position-display').classList.add('hidden');
           document.getElementById('reason-container').classList.add('hidden');
+          document.getElementById('hadir-time-options').classList.add('hidden');
           
           // Kemas kini semula kekangan tarikh ke hari semasa
           updateDatePickerConstraints();
@@ -2485,12 +2971,310 @@
       }
     });
 
-    // Tetapkan tarikh lalai dan kekangan kalendar semasa halaman dimuatkan
+    // =========================================================================
+    // FUNGSI CETAKAN (PRINT) BULANAN & TAHUNAN (FORMAT KERTAS A4 MENEGAK)
+    // =========================================================================
+    const NAMA_BULAN_MELAYU = [
+      'Januari', 'Februari', 'Mac', 'April', 'Mei', 'Jun',
+      'Julai', 'Ogos', 'September', 'Oktober', 'November', 'Disember'
+    ];
+    const NAMA_HARI_MELAYU = ['AHAD', 'ISNIN', 'SELASA', 'RABU', 'KHAMIS', 'JUMAAT', 'SABTU'];
+
+    // Sediakan pilihan Tahun & Bulan (Hanya Sebelum & Semasa Sahaja — Tiada Akan Datang)
+    function initPrintMonthYearSelectors() {
+      const yearSelect = document.getElementById('print-year');
+      const monthSelect = document.getElementById('print-month');
+      if (!yearSelect || !monthSelect) return;
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const startYear = Math.min(2025, currentYear);
+
+      yearSelect.innerHTML = '';
+      for (let y = currentYear; y >= startYear; y--) {
+        const opt = document.createElement('option');
+        opt.value = String(y);
+        opt.textContent = String(y);
+        yearSelect.appendChild(opt);
+      }
+      yearSelect.value = String(currentYear);
+      handlePrintYearMonthChange();
+    }
+
+    function handlePrintYearMonthChange() {
+      const yearSelect = document.getElementById('print-year');
+      const monthSelect = document.getElementById('print-month');
+      if (!yearSelect || !monthSelect) return;
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      const selectedYear = parseInt(yearSelect.value, 10) || currentYear;
+
+      // Jika tahun semasa dipilih, hadkan bulan sehingga bulan semasa sahaja (tiada bulan akan datang)
+      const maxMonth = selectedYear === currentYear ? currentMonth : 12;
+      const prevSelectedMonth = parseInt(monthSelect.value, 10) || currentMonth;
+
+      monthSelect.innerHTML = '';
+      for (let m = 1; m <= maxMonth; m++) {
+        const opt = document.createElement('option');
+        opt.value = String(m);
+        opt.textContent = NAMA_BULAN_MELAYU[m - 1];
+        monthSelect.appendChild(opt);
+      }
+
+      monthSelect.value = String(Math.min(prevSelectedMonth, maxMonth));
+      populatePrintDayScope();
+    }
+
+    // Senaraikan semua hari bekerja (Isnin - Jumaat, tidak melebihi hari ini) dalam bulan & tahun dipilih
+    function getWorkingDaysInMonth(year, month) {
+      const now = new Date();
+      const todayYMD = formatLocalYMD(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const list = [];
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateObj = new Date(year, month - 1, d);
+        const dow = dateObj.getDay();
+        if (dow >= 1 && dow <= 5) {
+          const ymd = formatLocalYMD(dateObj);
+          if (ymd <= todayYMD) {
+            list.push({
+              ymd,
+              dateObj,
+              dayName: NAMA_HARI_MELAYU[dow],
+              displayDMY: formatDisplayDMY(dateObj)
+            });
+          }
+        }
+      }
+      return list;
+    }
+
+    function populatePrintDayScope() {
+      const yearSelect = document.getElementById('print-year');
+      const monthSelect = document.getElementById('print-month');
+      const scopeSelect = document.getElementById('print-day-scope');
+      if (!yearSelect || !monthSelect || !scopeSelect) return;
+
+      const year = parseInt(yearSelect.value, 10);
+      const month = parseInt(monthSelect.value, 10);
+      const workingDays = getWorkingDaysInMonth(year, month);
+
+      scopeSelect.innerHTML = '';
+      const allOpt = document.createElement('option');
+      allOpt.value = 'ALL';
+      allOpt.textContent = `Semua Hari Bekerja (${workingDays.length} Hari)`;
+      scopeSelect.appendChild(allOpt);
+
+      workingDays.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.ymd;
+        opt.textContent = `${item.dayName} — ${item.displayDMY}`;
+        scopeSelect.appendChild(opt);
+      });
+    }
+
+    function isStaffAKP(jawatanStr) {
+      const j = String(jawatanStr || '').toLowerCase();
+      return j.includes('ahli kumpulan pelaksana') || j.includes('akp');
+    }
+
+    function checkIsTimeLate(teksMasa, timestampVal, isAKP) {
+      const hadMinit = isAKP ? (8 * 60 + 0) : (7 * 60 + 30);
+      let minitHantar = null;
+      const padananMasa = String(teksMasa || '').match(/(\d{1,2})[:.](\d{2})/);
+      if (padananMasa) {
+        let jam = parseInt(padananMasa[1], 10);
+        const minit = parseInt(padananMasa[2], 10);
+        const teksBesar = String(teksMasa).toUpperCase();
+        const isPM = teksBesar.includes('PTG') || teksBesar.includes('PM') || teksBesar.includes('PETANG') || teksBesar.includes('MALAM');
+        const isAM = teksBesar.includes('PG') || teksBesar.includes('AM') || teksBesar.includes('PAGI');
+        if (isPM && jam < 12) jam += 12;
+        if (isAM && jam === 12) jam = 0;
+        minitHantar = jam * 60 + minit;
+      } else if (timestampVal) {
+        const tarikhTs = new Date(timestampVal);
+        if (!isNaN(tarikhTs.getTime())) {
+          minitHantar = tarikhTs.getHours() * 60 + tarikhTs.getMinutes();
+        }
+      }
+      return minitHantar !== null && minitHantar > hadMinit;
+    }
+
+    function closePrintPreviewModal() {
+      const modal = document.getElementById('print-preview-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function handlePrintAttendance(category) {
+      const year = parseInt(document.getElementById('print-year').value, 10);
+      const month = parseInt(document.getElementById('print-month').value, 10);
+      const scope = document.getElementById('print-day-scope').value;
+
+      const allWorkingDays = getWorkingDaysInMonth(year, month);
+      const targetDays = scope === 'ALL'
+        ? allWorkingDays
+        : allWorkingDays.filter(d => d.ymd === scope);
+
+      if (targetDays.length === 0) {
+        showToast('⚠️ Tiada hari bekerja (sebelum/semasa) untuk dicetak pada bulan ini.', 'error');
+        return;
+      }
+
+      // Tapis senarai staf mengikut kategori butang (GURU vs AKP)
+      const filteredStaff = allStaff.filter(name => {
+        const jawatan = staffData[name] || '';
+        return category === 'AKP' ? isStaffAKP(jawatan) : !isStaffAKP(jawatan);
+      });
+
+      if (filteredStaff.length === 0) {
+        showToast('⚠️ Tiada senarai staf ditemui bagi kategori ini.', 'error');
+        return;
+      }
+
+      const btnId = category === 'AKP' ? 'btn-print-akp' : 'btn-print-guru';
+      const btnEl = document.getElementById(btnId);
+      const originalBtnHtml = btnEl ? btnEl.innerHTML : '';
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerHTML = '<div class="spinner"></div><span>Menjana Cetakan A4...</span>';
+      }
+
+      try {
+        // Muat data bagi setiap tarikh sasaran
+        const recordsByDate = {};
+        await Promise.all(targetDays.map(async (dayItem) => {
+          try {
+            const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getByDate&date=${dayItem.ymd}`);
+            const json = await res.json();
+            recordsByDate[dayItem.ymd] = (json && json.status === 'success' && Array.isArray(json.data)) ? json.data : [];
+          } catch (e) {
+            recordsByDate[dayItem.ymd] = [];
+          }
+        }));
+
+        const tajukDokumen = category === 'AKP' ? 'REKOD KEDATANGAN AKP' : 'REKOD KEDATANGAN GURU';
+        const headerKolumNama = category === 'AKP' ? 'NAMA AKP' : 'NAMA GURU';
+        const namaBulan = NAMA_BULAN_MELAYU[month - 1].toUpperCase();
+
+        let pagesHtml = '';
+
+        targetDays.forEach((dayItem) => {
+          const dayRecords = recordsByDate[dayItem.ymd] || [];
+          let rowsHtml = '';
+
+          filteredStaff.forEach((staffName, idx) => {
+            const jawatan = staffData[staffName] || '';
+            const recFromSheet = dayRecords.find(r => r.nama_staf === staffName);
+            const recLocal = getLocalStaffAttendanceCache(dayItem.ymd, staffName);
+            const rec = recFromSheet || recLocal || null;
+
+            let masaHadirHtml = '-';
+            let masaBalikHtml = '-';
+            let catatanHtml = '-';
+
+            if (rec) {
+              if (rec.status_kehadiran === 'Hadir') {
+                let teksMasa = rec.masa_kehadiran || '';
+                if (!teksMasa && rec.timestamp) {
+                  const dt = new Date(rec.timestamp);
+                  if (!isNaN(dt.getTime())) {
+                    teksMasa = dt.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }).toUpperCase();
+                  }
+                }
+                // Buang sebarang perkataan (LEWAT) jika ada, hanya warnakan nombor merah jika lewat
+                teksMasa = String(teksMasa || '-').replace(/\(LEWAT\)/gi, '').trim();
+                const lewat = checkIsTimeLate(teksMasa, rec.timestamp, category === 'AKP');
+                masaHadirHtml = lewat
+                  ? `<span class="text-late-red">${teksMasa}</span>`
+                  : `<span style="font-weight:600;">${teksMasa}</span>`;
+
+                const mBalik = rec.masa_balik || (recLocal ? recLocal.masa_balik : '') || '-';
+                masaBalikHtml = `<span style="font-weight:600;">${mBalik}</span>`;
+                catatanHtml = '-';
+              } else if (rec.status_kehadiran === 'Tidak Hadir') {
+                masaHadirHtml = '-';
+                masaBalikHtml = '-';
+                const sebab = rec.sebab_tidak_hadir ? ` : ${rec.sebab_tidak_hadir}` : '';
+                catatanHtml = `<span class="text-late-red">TIDAK HADIR</span><span>${sebab}</span>`;
+              }
+            }
+
+            rowsHtml += `
+              <tr>
+                <td style="font-weight:600;">${idx + 1}. ${staffName}</td>
+                <td>${jawatan}</td>
+                <td style="text-align:center;">${masaHadirHtml}</td>
+                <td style="text-align:center;">${masaBalikHtml}</td>
+                <td class="catatan-cell">${catatanHtml}</td>
+              </tr>
+            `;
+          });
+
+          pagesHtml += `
+            <div class="a4-page">
+              <div style="text-align:center; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px;">
+                <img src="https://iili.io/Ky1xH3F.jpg" alt="Logo SK Ulu Pelagus" style="width: 68px; height: 68px; object-fit: contain; margin: 0 auto 6px auto; display: block;">
+                <h1 style="font-size: 16px; font-weight: 800; margin: 0; letter-spacing: 0.04em; color: #0f172a;">${tajukDokumen}</h1>
+                <p style="font-size: 11px; font-weight: 700; margin: 2px 0 0 0; color: #334155;">SK ULU PELAGUS (${namaBulan} ${year})</p>
+                <div style="margin-top: 6px; display: inline-block; padding: 3px 12px; background: #f1f5f9; border: 1px solid #475569; border-radius: 4px; font-size: 11px; font-weight: 800; color: #0f172a;">
+                  HARI : ${dayItem.dayName} &nbsp;&nbsp;|&nbsp;&nbsp; TARIKH : ${dayItem.displayDMY}
+                </div>
+              </div>
+
+              <table class="a4-table">
+                <thead>
+                  <tr>
+                    <th style="width: 26%;">${headerKolumNama}</th>
+                    <th style="width: 20%;">JAWATAN</th>
+                    <th style="width: 15%;">MASA KEHADIRAN</th>
+                    <th style="width: 15%;">MASA BALIK</th>
+                    <th style="width: 24%;">CATATAN</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rowsHtml}
+                </tbody>
+              </table>
+            </div>
+          `;
+        });
+
+        const printMount = document.getElementById('print-mount');
+        const previewBody = document.getElementById('print-preview-body');
+        const previewModal = document.getElementById('print-preview-modal');
+        const modalTitle = document.getElementById('print-modal-title');
+
+        if (printMount) printMount.innerHTML = pagesHtml;
+        if (previewBody) previewBody.innerHTML = pagesHtml;
+        if (modalTitle) modalTitle.textContent = `${tajukDokumen} — ${namaBulan} ${year} (${targetDays.length} Halaman A4)`;
+        if (previewModal) previewModal.classList.remove('hidden');
+
+        setTimeout(() => {
+          window.print();
+        }, 300);
+
+      } catch (err) {
+        console.error('❌ Ralat menjana cetakan:', err);
+        showToast('❌ Gagal menjana cetakan: ' + err.message, 'error');
+      } finally {
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.innerHTML = originalBtnHtml;
+        }
+      }
+    }
+
+    // Tetapkan tarikh lalai, pilihan bulan/tahun cetakan & kekangan kalendar semasa halaman dimuatkan
     updateDatePickerConstraints();
+    initPrintMonthYearSelectors();
 
     // Load staff data & GPS zones on page load
     loadStaffFromCSV();
     loadGpsZonesFromSheet();
-    startGpsMonitoring();  </script>
+    startGpsMonitoring();
+  </script>
 </body>
 </html>
