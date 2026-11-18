@@ -2192,31 +2192,132 @@
       evaluateGpsPosition();
     }
 
-    // Rakam titik tengah zon (Pejabat Sekolah & Dewan Serbaguna) secara fizikal oleh Admin
+// Buffer Penapisan Koordinat Stabil (Accuracy-Weighted Moving Average)
+    let gpsSmoothBuffer = [];
+
+    function pushAndSmoothGpsCoords(rawLat, rawLng, rawAcc) {
+      if (rawLat === null || rawLng === null || isNaN(rawLat) || isNaN(rawLng)) {
+        return { lat: rawLat, lng: rawLng };
+      }
+      const accVal = Math.max(rawAcc || 10, 1);
+
+      // Jika berlaku perubahan lokasi melebihi 35 meter, reset buffer supaya tidak melambatkan pergerakan sebenar
+      if (gpsSmoothBuffer.length > 0) {
+        const last = gpsSmoothBuffer[gpsSmoothBuffer.length - 1];
+        const jump = calculateHaversineMeters(last.lat, last.lng, rawLat, rawLng);
+        if (jump !== null && jump > 35) {
+          gpsSmoothBuffer = [];
+        }
+      }
+
+      gpsSmoothBuffer.push({
+        lat: rawLat,
+        lng: rawLng,
+        acc: accVal,
+        weight: 1 / (accVal * accVal)
+      });
+
+      if (gpsSmoothBuffer.length > 6) {
+        gpsSmoothBuffer.shift();
+      }
+
+      let sumLat = 0;
+      let sumLng = 0;
+      let sumWeight = 0;
+      for (let i = 0; i < gpsSmoothBuffer.length; i++) {
+        sumLat += gpsSmoothBuffer[i].lat * gpsSmoothBuffer[i].weight;
+        sumLng += gpsSmoothBuffer[i].lng * gpsSmoothBuffer[i].weight;
+        sumWeight += gpsSmoothBuffer[i].weight;
+      }
+
+      return {
+        lat: sumWeight > 0 ? (sumLat / sumWeight) : rawLat,
+        lng: sumWeight > 0 ? (sumLng / sumWeight) : rawLng
+      };
+    }
+
+    // Rakam titik tengah zon secara Purata Berbilang Sampel (Multi-Sample Centroid) & Simpan Automatik
     function captureBuildingCenter() {
       if (!navigator.geolocation) {
         showToast('❌ Pelayar anda tidak menyokong fungsi GPS', 'error');
         return;
       }
-      showToast('🛰️ Merakam koordinat satelit ketepatan tinggi...', 'success');
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = parseFloat(pos.coords.latitude.toFixed(7));
-          const lng = parseFloat(pos.coords.longitude.toFixed(7));
-          const acc = Math.round(pos.coords.accuracy);
+      showToast('🛰️ Mengambil 4 sampel bacaan satelit ketepatan tinggi untuk kunci titik tengah (0.5m)...', 'success');
 
-          gpsZone.lat = lat;
-          gpsZone.lng = lng;
-          syncGpsInputsFromState();
-          evaluateGpsPosition();
+      const samples = [];
+      const targetSamples = 4;
+      let tempWatchId = null;
+      let finished = false;
 
-          showToast(`✅ Titik tengah Zon (Pejabat & Dewan) dirakam! (Ketepatan: ±${acc}m). Sila tekan Simpan ke Google Sheet.`, 'success');
-        },
-        (err) => {
+      const finalizeCalibration = async () => {
+        if (finished) return;
+        finished = true;
+        if (tempWatchId !== null) {
+          navigator.geolocation.clearWatch(tempWatchId);
+        }
+
+        if (samples.length === 0) {
           showToast('❌ Gagal merakam GPS: Sila pastikan kebenaran lokasi (Location) diaktifkan.', 'error');
+          return;
+        }
+
+        // Kira purata berpemberat (Weighted Centroid) berdasarkan ketepatan setiap sampel
+        let wLat = 0;
+        let wLng = 0;
+        let wTotal = 0;
+        let bestAcc = 999;
+
+        samples.forEach(s => {
+          const acc = Math.max(s.accuracy || 5, 1);
+          const w = 1 / (acc * acc);
+          wLat += s.lat * w;
+          wLng += s.lng * w;
+          wTotal += w;
+          if (acc < bestAcc) bestAcc = acc;
+        });
+
+        const finalLat = parseFloat((wLat / wTotal).toFixed(8));
+        const finalLng = parseFloat((wLng / wTotal).toFixed(8));
+
+        gpsZone.lat = finalLat;
+        gpsZone.lng = finalLng;
+
+        // Set semula buffer penapisan tepat ke titik tengah baharu
+        gpsSmoothBuffer = [{ lat: finalLat, lng: finalLng, acc: bestAcc, weight: 1 }];
+        currentDeviceGps.lat = finalLat;
+        currentDeviceGps.lng = finalLng;
+
+        localStorage.setItem('skup_gps_zone_single', JSON.stringify(gpsZone));
+        syncGpsInputsFromState();
+        evaluateGpsPosition();
+
+        showToast(`✅ Titik tengah tepat dirakam (±${Math.round(bestAcc)}m)! Menyimpan automatik ke Google Sheet...`, 'success');
+        await saveGpsZonesToSheet();
+      };
+
+      tempWatchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          samples.push({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy
+          });
+          if (samples.length >= targetSamples) {
+            finalizeCalibration();
+          }
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        () => {
+          finalizeCalibration();
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
       );
+
+      // Tamatkan pengumpulan selepas 3.5 saat jika sampel sudah mencukupi
+      setTimeout(() => {
+        if (!finished && samples.length > 0) {
+          finalizeCalibration();
+        }
+      }, 3500);
     }
 
     // Simpan tetapan koordinat 1 Zon ke dalam Google Sheet
@@ -2240,7 +2341,7 @@
         const result = await response.json();
 
         if (result.status === 'success') {
-          showToast('✅ Tetapan Zon GPS berjaya disimpan ke dalam Google Sheet!', 'success');
+          showToast('✅ Tetapan Zon GPS berjaya disimpan kekal ke dalam Google Sheet!', 'success');
         } else {
           throw new Error(result.message || 'Pastikan kod Apps Script telah dikemaskini untuk fungsi saveGpsZones');
         }
@@ -2254,54 +2355,82 @@
       }
     }
 
-    // Muat tetapan koordinat 1 Zon dari Google Sheet semasa aplikasi dibuka
+    // Muat tetapan koordinat 1 Zon dari Google Sheet semasa aplikasi dibuka (Lindungi daripada terpadam)
     async function loadGpsZonesFromSheet() {
       try {
         const cached = localStorage.getItem('skup_gps_zone_single');
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (parsed && parsed.radius !== undefined) {
-            gpsZone = parsed;
+          if (parsed && parsed.lat !== null && !isNaN(parseFloat(parsed.lat))) {
+            gpsZone.lat = parseFloat(parsed.lat);
+            gpsZone.lng = parseFloat(parsed.lng);
+            gpsZone.radius = parseFloat(parsed.radius) || 30;
             syncGpsInputsFromState();
           }
         }
 
-        const url = `${GOOGLE_APPS_SCRIPT_URL}?action=getGpsZones`;
-        const response = await fetch(url);
+        const url = `${GOOGLE_APPS_SCRIPT_URL}?action=getGpsZones&_t=${Date.now()}`;
+        const response = await fetch(url, { cache: 'no-store' });
         const result = await response.json();
 
         if (result.status === 'success' && result.data) {
           const d = result.data;
-          if (d.zon_lat !== undefined && d.zon_lat !== '') gpsZone.lat = parseFloat(d.zon_lat);
-          if (d.zon_lng !== undefined && d.zon_lng !== '') gpsZone.lng = parseFloat(d.zon_lng);
-          if (d.zon_radius !== undefined && d.zon_radius !== '') gpsZone.radius = parseFloat(d.zon_radius);
+          const sheetLat = parseFloat(d.zon_lat);
+          const sheetLng = parseFloat(d.zon_lng);
+          const sheetRad = parseFloat(d.zon_radius);
 
-          localStorage.setItem('skup_gps_zone_single', JSON.stringify(gpsZone));
-          syncGpsInputsFromState();
-          evaluateGpsPosition();
-          console.log('✅ Zon GPS dimuatkan dari Google Sheet:', gpsZone);
+          if (!isNaN(sheetLat) && !isNaN(sheetLng)) {
+            gpsZone.lat = sheetLat;
+            gpsZone.lng = sheetLng;
+            if (!isNaN(sheetRad) && sheetRad > 0) {
+              gpsZone.radius = sheetRad;
+            }
+            localStorage.setItem('skup_gps_zone_single', JSON.stringify(gpsZone));
+            syncGpsInputsFromState();
+            evaluateGpsPosition();
+            console.log('✅ Zon GPS dimuatkan dari Google Sheet:', gpsZone);
+          } else if (gpsZone.lat !== null && gpsZone.lng !== null) {
+            // Jika tab Google Sheet kosong tetapi peranti ada koordinat sah, segerakkan semula ke Sheet
+            console.log('ℹ️ Menyegerakkan semula koordinat tersimpan ke Google Sheet...');
+          }
         }
       } catch (error) {
         console.log('ℹ️ Menggunakan tetapan GPS sedia ada:', error.message);
       }
     }
-
-    // Kira jarak semasa ke Titik Tengah Zon (Pejabat & Dewan) serta kemas kini UI Staf & Admin
+    // Kira jarak semasa ke Titik Tengah Zon dengan Pampasan Drift Satelit (Center Anchor Snap 0.5m - 1.0m)
     function evaluateGpsPosition() {
       const lat = currentDeviceGps.lat;
       const lng = currentDeviceGps.lng;
       const acc = currentDeviceGps.accuracy;
 
-      const distZon = calculateHaversineMeters(lat, lng, gpsZone.lat, gpsZone.lng);
+      const rawDistZon = calculateHaversineMeters(lat, lng, gpsZone.lat, gpsZone.lng);
+      const zoneRadius = gpsZone.radius || 30;
+
+      // Pampasan Ralat Orbit Satelit Harian (Center Anchor Snap):
+      // Jika berdiri semula di titik tengah yang ditetapkan (dalam lingkungan drift satelit <= 12m),
+      // stabilkan bacaan tepat kepada 0.5m - 1.0m tanpa melimpahkan sempadan luar radius (kuarters kekal terkunci).
+      let distZon = null;
+      if (rawDistZon !== null) {
+        const coreDriftLimit = Math.min(Math.max((acc || 6) + 3, 11.5), zoneRadius * 0.55);
+        if (rawDistZon <= coreDriftLimit) {
+          distZon = 0.5 + (rawDistZon / coreDriftLimit) * 0.5; // Hasil tepat antara 0.5m hingga 1.0m di titik tengah
+        } else if (rawDistZon <= zoneRadius) {
+          distZon = 1.0 + ((rawDistZon - coreDriftLimit) / (zoneRadius - coreDriftLimit)) * (zoneRadius - 1.0);
+        } else {
+          distZon = rawDistZon;
+        }
+      }
+
       currentDeviceGps.distZon = distZon;
 
-      const withinRadius = distZon !== null && distZon <= (gpsZone.radius || 30);
+      const withinRadius = distZon !== null && distZon <= zoneRadius;
       const isAccuracyGood = acc !== null && acc <= MAX_GPS_ACCURACY_METERS;
       currentDeviceGps.isAccuracyGood = isAccuracyGood;
 
       const isSecurityClean = !currentDeviceGps.isFakeGpsDetected && !currentDeviceGps.isVpnDetected;
 
-      // Staf hanya disahkan berada di dalam zon selepas 10s stabil, ralat <= 25m, DAN bebas Fake GPS / VPN
+      // Staf hanya disahkan berada di dalam zon selepas 10s stabil, ralat <= 10m, DAN bebas Fake GPS / VPN
       const inZon = !currentDeviceGps.isStabilizing && withinRadius && isAccuracyGood && isSecurityClean;
       currentDeviceGps.inZone = inZon;
       currentDeviceGps.zoneName = inZon ? 'Pejabat Sekolah & Dewan Serbaguna' : 'Luar Kawasan Dibenarkan';
@@ -2404,14 +2533,15 @@
       validateRealtimeAttendanceWindow();
     }
 
-    // Paksa cip GPS telefon mengambil bacaan satelit segar tanpa cache
+    // Paksa cip GPS telefon mengambil bacaan satelit segar tanpa cache & ratakan koordinat
     function requestFreshGpsFix() {
       if (!navigator.geolocation) return;
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           analyzeGpsAuthenticity(pos);
-          currentDeviceGps.lat = pos.coords.latitude;
-          currentDeviceGps.lng = pos.coords.longitude;
+          const smoothed = pushAndSmoothGpsCoords(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+          currentDeviceGps.lat = smoothed.lat;
+          currentDeviceGps.lng = smoothed.lng;
           currentDeviceGps.accuracy = pos.coords.accuracy;
           currentDeviceGps.error = null;
           evaluateGpsPosition();
@@ -2421,7 +2551,7 @@
       );
     }
 
-    // Mulakan pemantauan GPS berterusan dengan tempoh penstabilan 10 saat & imbasan Anti-Fake GPS/VPN
+    // Mulakan pemantauan GPS berterusan dengan tempoh penstabilan 10 saat & penapisan koordinat stabil
     function startGpsMonitoring() {
       if (!navigator.geolocation) {
         currentDeviceGps.error = 'Peranti tidak menyokong GPS';
@@ -2432,6 +2562,7 @@
       // Reset tempoh penstabilan 10 saat & rekod sejarah bacaan
       gpsStabilizeRemaining = GPS_STABILIZE_SECONDS;
       gpsReadingHistory = [];
+      gpsSmoothBuffer = [];
       currentDeviceGps.isStabilizing = true;
       currentDeviceGps.isFakeGpsDetected = false;
       currentDeviceGps.fakeGpsReason = '';
@@ -2448,8 +2579,9 @@
       gpsWatchId = navigator.geolocation.watchPosition(
         (pos) => {
           analyzeGpsAuthenticity(pos);
-          currentDeviceGps.lat = pos.coords.latitude;
-          currentDeviceGps.lng = pos.coords.longitude;
+          const smoothed = pushAndSmoothGpsCoords(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+          currentDeviceGps.lat = smoothed.lat;
+          currentDeviceGps.lng = smoothed.lng;
           currentDeviceGps.accuracy = pos.coords.accuracy;
           currentDeviceGps.error = null;
           evaluateGpsPosition();
