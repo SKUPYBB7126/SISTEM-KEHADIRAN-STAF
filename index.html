@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistem Kehadiran Staf SK Ulu Pelagus</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <script src="/_sdk/822dffaf50ae4c7c.element_sdk.js" integrity="sha512-Act84jpXozCuCA2fRREMmozW2zsGB5hlwbusrExMJ8NdYZ6zgauUFx3HMd3h2QPDoYUT1YqO9byX/5eHLT/H5Q=="></script>
  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@600;700&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <style>
@@ -374,15 +375,21 @@
       </div>
     </header>
 
-    <!-- Tab Navigation -->
+   <!-- Tab Navigation -->
     <nav class="glass-nav sticky top-0 z-20">
       <div class="max-w-6xl mx-auto px-4 py-2.5">
-        <div class="flex gap-3 justify-center md:justify-start">
+        <div class="flex flex-wrap gap-3 justify-center md:justify-start">
           <button onclick="switchTab('lapor')" id="tab-lapor" class="tab-btn px-6 py-3 font-bold text-slate-300 hover:text-white rounded-xl tab-active flex items-center gap-2.5">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             Lapor Kehadiran
+          </button>
+          <button onclick="switchTab('daftar-wajah')" id="tab-daftar-wajah" class="tab-btn px-6 py-3 font-bold text-slate-300 hover:text-white rounded-xl flex items-center gap-2.5">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            Daftar Wajah (Kali Pertama)
           </button>
           <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-6 py-3 font-bold text-slate-300 hover:text-white rounded-xl flex items-center gap-2.5">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -432,14 +439,40 @@
             <p class="text-gray-500 pulse">Memuatkan senarai staf dari Google Sheet...</p>
           </div>
 
+          <!-- PANEL IMBASAN PENGECAMAN WAJAH (PENGESAHAN IDENTITI STAF) -->
+          <div id="lapor-face-panel" class="hidden mb-6 p-5 rounded-2xl border-2 border-cyan-300 bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 text-white shadow-lg space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-cyan-300">🛡️ Pengesahan Biometrik Wajah (Anti-Wakil)</span>
+                <h3 class="text-lg font-bold mt-0.5">Imbas Wajah Untuk Paparan Nama Automatik</h3>
+                <p id="lapor-model-status" class="text-xs text-slate-300 mt-0.5">⏳ Memuatkan model pengecaman wajah dari GitHub...</p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" id="btn-start-lapor-scan" onclick="startAttendanceFaceScan()" class="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold rounded-xl text-xs shadow-md transition-all flex items-center gap-2">
+                  <span>📷 Imbas Wajah Staf</span>
+                </button>
+                <button type="button" id="btn-reset-lapor-scan" onclick="resetAttendanceFaceVerification(true)" class="hidden px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl text-xs border border-white/25 transition-all">
+                  🔄 Imbas Semula / Tukar Staf
+                </button>
+              </div>
+            </div>
+
+            <div id="lapor-camera-wrapper" class="hidden relative mx-auto max-w-sm rounded-2xl overflow-hidden border-2 border-cyan-400 bg-black shadow-xl">
+              <video id="lapor-video" autoplay muted playsinline class="w-full h-auto block transform -scale-x-100"></video>
+              <canvas id="lapor-canvas" class="absolute inset-0 w-full h-full pointer-events-none transform -scale-x-100"></canvas>
+            </div>
+
+            <div id="lapor-face-status" class="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40">
+              🔒 Sila tekan butang "Imbas Wajah Staf" untuk mengesahkan identiti anda sebelum mengisi laporan kehadiran.
+            </div>
+          </div>
+
           <!-- FORM HARIAN -->
           <form id="attendance-form" class="space-y-6 hidden">
-            <!-- Nama Staf -->
+            <!-- Nama Staf (Automatik & Terkunci Selepas Imbasan Wajah) -->
             <div class="space-y-2">
-              <label for="staff-name" class="block text-sm font-semibold text-gray-700">Nama Staf <span class="text-red-500">*</span></label>
-              <select id="staff-name" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white">
-                <option value="">-- Pilih Nama Staf --</option>
-              </select>
+              <label for="staff-name" class="block text-sm font-semibold text-gray-700">Nama Staf (Disahkan Melalui Wajah — Terkunci) <span class="text-red-500">*</span></label>
+              <input type="text" id="staff-name" readonly required tabindex="-1" placeholder="Sila imbas wajah di atas untuk paparan nama automatik..." class="w-full px-4 py-3 border border-gray-200 rounded-xl font-bold text-teal-900 cursor-not-allowed select-none">
               <div id="position-display" class="hidden mt-2 px-4 py-2 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-lg border border-teal-200">
                 <span class="text-sm text-gray-600">Jawatan: </span>
                 <span id="position-text" class="font-semibold text-teal-700"></span>
@@ -558,12 +591,10 @@
 
           <!-- FORM MINGGUAN -->
           <form id="weekly-attendance-form" class="space-y-6 hidden">
-            <!-- Nama Staf -->
+            <!-- Nama Staf (Automatik & Terkunci Selepas Imbasan Wajah) -->
             <div class="space-y-2">
-              <label for="weekly-staff-name" class="block text-sm font-semibold text-gray-700">Nama Staf <span class="text-red-500">*</span></label>
-              <select id="weekly-staff-name" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white">
-                <option value="">-- Pilih Nama Staf --</option>
-              </select>
+              <label for="weekly-staff-name" class="block text-sm font-semibold text-gray-700">Nama Staf (Disahkan Melalui Wajah — Terkunci) <span class="text-red-500">*</span></label>
+              <input type="text" id="weekly-staff-name" readonly required tabindex="-1" placeholder="Sila imbas wajah di atas untuk paparan nama automatik..." class="w-full px-4 py-3 border border-gray-200 rounded-xl font-bold text-teal-900 cursor-not-allowed select-none">
               <div id="weekly-position-display" class="hidden mt-2 px-4 py-2 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-lg border border-teal-200">
                 <span class="text-sm text-gray-600">Jawatan: </span>
                 <span id="weekly-position-text" class="font-semibold text-teal-700"></span>
@@ -609,7 +640,7 @@
               <textarea id="weekly-absence-reason" rows="3" placeholder="Sila nyatakan sebab tidak hadir untuk semua hari dalam minggu ini..." class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white resize-none"></textarea>
             </div>
 
-            <!-- Submit Button -->
+           <!-- Submit Button -->
             <div class="pt-4">
               <button type="submit" id="weekly-submit-btn" class="btn-primary w-full py-4 text-white font-semibold rounded-xl shadow-lg flex items-center justify-center gap-2">
                 <svg id="weekly-submit-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -619,6 +650,85 @@
               </button>
             </div>
           </form>
+        </div>
+      </div>
+
+      <!-- TAB DAFTAR WAJAH STAF (KALI PERTAMA SAHAJA) -->
+      <div id="content-daftar-wajah" class="tab-content hidden">
+        <div class="bg-white rounded-2xl shadow-xl p-8 border border-gray-100 space-y-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-5">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-cyan-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <div>
+                <h2 class="text-2xl font-bold text-gray-800">Daftar Wajah Staf (Kali Pertama Sahaja)</h2>
+                <p class="text-gray-500 text-sm">Imbas wajah anda dahulu, kemudian pilih nama penuh untuk disimpan ke Google Sheet</p>
+              </div>
+            </div>
+            <div id="reg-progress-badge" class="px-4 py-2 rounded-xl bg-teal-50 border border-teal-200 text-xs font-bold text-teal-800 self-start">
+              📊 Status: Memuatkan rekod biometrik...
+            </div>
+          </div>
+
+          <div id="reg-model-status" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+            ⏳ Sedang memuatkan model pengecaman wajah dari GitHub...
+          </div>
+
+          <!-- LANGKAH 1: IMBAS WAJAH KALI PERTAMA -->
+          <div class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-teal-950 text-white space-y-4 shadow-lg">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-cyan-300">Langkah 1</span>
+                <h3 class="text-lg font-bold">Imbas Wajah Anda Melalui Kamera</h3>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" id="btn-start-reg-cam" onclick="startRegisterCamera()" class="px-4 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold rounded-xl text-xs shadow transition-all">
+                  📷 Hidupkan Kamera
+                </button>
+                <button type="button" id="btn-capture-reg" onclick="captureRegisterFace()" disabled class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-xs shadow transition-all">
+                  📸 Imbas & Kunci Wajah
+                </button>
+                <button type="button" id="btn-reset-reg" onclick="resetRegisterFace()" class="hidden px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-xl text-xs border border-white/25 transition-all">
+                  🔄 Imbas Semula
+                </button>
+              </div>
+            </div>
+
+            <div id="reg-camera-wrapper" class="hidden relative mx-auto max-w-sm rounded-2xl overflow-hidden border-2 border-cyan-400 bg-black shadow-xl">
+              <video id="reg-video" autoplay muted playsinline class="w-full h-auto block transform -scale-x-100"></video>
+              <canvas id="reg-canvas" class="absolute inset-0 w-full h-full pointer-events-none transform -scale-x-100"></canvas>
+            </div>
+
+            <div id="reg-face-status" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40">
+              ℹ️ Tekan "Hidupkan Kamera", hadapkan wajah anda dengan pencahayaan jelas, kemudian tekan "Imbas & Kunci Wajah".
+            </div>
+          </div>
+
+          <!-- LANGKAH 2: PILIH NAMA PENUH (TERPAPAR SELEPAS WAJAH BERJAYA DIIMBAS) -->
+          <div id="reg-step-dropdown" class="hidden p-6 rounded-2xl border-2 border-emerald-300 bg-emerald-50/70 space-y-4 fade-in">
+            <div class="px-4 py-2.5 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold">
+              ✅ Wajah berjaya diimbas & kod biometrik 128-titik siap dijana! Sila pilih nama penuh anda di bawah (hanya staf belum berdaftar sahaja dipaparkan).
+            </div>
+
+            <div class="space-y-2">
+              <label for="register-staff-name" class="block text-sm font-bold text-gray-800">Langkah 2: Pilih Nama Penuh Staf <span class="text-red-500">*</span></label>
+              <select id="register-staff-name" onchange="handleRegisterStaffChange()" class="w-full px-4 py-3 border border-gray-300 rounded-xl font-semibold text-gray-800 bg-white">
+                <option value="">-- Pilih Nama Penuh Anda --</option>
+              </select>
+              <div id="register-position-display" class="hidden mt-2 px-4 py-2 bg-white rounded-lg border border-emerald-200">
+                <span class="text-sm text-gray-600">Jawatan: </span>
+                <span id="register-position-text" class="font-semibold text-teal-700"></span>
+              </div>
+              <p class="text-xs text-gray-600">* Nama staf yang sudah mempunyai data biometrik wajah disembunyikan secara automatik bagi mengelakkan data ditimpa.</p>
+            </div>
+
+            <button type="button" id="btn-save-face" onclick="saveRegisteredFace()" class="btn-primary w-full py-4 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2">
+              <span>💾 Simpan Biometrik Wajah ke Google Sheet</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1027,11 +1137,13 @@
 
   <script>
     // ✅ CONFIGURATION - Google Apps Script & CSV URLs
-    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzS8HIy6uXAsTih-QR5Wbv4PguGlqcf2tR6i3_c2LjAzhkKsC1gy-rxr435guNKSvch1Q/exec';
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzEQuaJJ1JWNYjNfwH045DrTe3buhtfvD1pdErkI2wlsv-HjZzhFLcNBQ7lTV7Judjlyw/exec';
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRUfMMU_QAAPE9Y3bp1DtBCy7WSNYP5U3t6D8Jixmj2TpQpj_Qsns27s3ZMoboQwpHKA0Y3j2Db2k24/pub?gid=0&single=true&output=csv';
 
-    let staffData = {};
+let staffData = {};
     let allStaff = [];
+    let staffBiometrics = {};
+    let verifiedAttendanceStaff = '';
 
     console.log('🔗 Apps Script URL:', GOOGLE_APPS_SCRIPT_URL);
     console.log('📊 CSV URL:', CSV_URL);
@@ -1097,9 +1209,10 @@
           throw new Error('CSV kosong atau tidak mengandungi data');
         }
         
-        // Skip header row (line 0)
+       // Skip header row (line 0)
         staffData = {};
         allStaff = [];
+        staffBiometrics = {};
         
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
@@ -1111,10 +1224,15 @@
           if (columns.length >= 2) {
             const namaStaf = columns[0].trim();
             const jawatan = columns[1].trim();
+            const rawBiometrik = columns.length >= 3 ? columns[2].trim() : '';
             
             if (namaStaf && jawatan) {
               staffData[namaStaf] = jawatan;
               allStaff.push(namaStaf);
+              const parsedDesc = parseBiometricDescriptor(rawBiometrik);
+              if (parsedDesc) {
+                staffBiometrics[namaStaf] = parsedDesc;
+              }
             }
           }
         }
@@ -1125,13 +1243,16 @@
         
         console.log('✅ Staff data loaded:', allStaff);
         
-        // Populate dropdown
-        populateStaffDropdown();
-        populateWeeklyStaffDropdown();
+        // Segerakkan data biometrik terkini terus daripada Google Apps Script (elak kelewatan cache CSV)
+        await loadBiometricsFromAppsScript();
+        
+        // Populate dropdown daftar wajah (staf belum berdaftar sahaja) & rekod individu
+        populateRegisterStaffDropdown();
         populateIndividualStaffDropdown();
         
-        // Hide loading, show form
+        // Hide loading, show face panel & form
         document.getElementById('loading-staff').classList.add('hidden');
+        document.getElementById('lapor-face-panel').classList.remove('hidden');
         document.getElementById('attendance-form').classList.remove('hidden');
         
         showToast(`✅ Berjaya memuatkan ${allStaff.length} staf dari Google Sheet`, 'success');
@@ -1179,25 +1300,30 @@
       return result;
     }
 
-    // Populate staff dropdown
-    function populateStaffDropdown() {
-      const dropdown = document.getElementById('staff-name');
-      dropdown.innerHTML = '<option value="">-- Pilih Nama Staf --</option>';
-      
-      allStaff.forEach(name => {
-        const option = document.createElement('option');
-        option.value = name;
-        option.textContent = name;
-        dropdown.appendChild(option);
-      });
-    }
+   // Populate dropdown Daftar Wajah (hanya paparkan staf yang BELUM mempunyai data BIOMETRIK_WAJAH)
+    function populateRegisterStaffDropdown() {
+      const dropdown = document.getElementById('register-staff-name');
+      const progressBadge = document.getElementById('reg-progress-badge');
+      const registeredCount = allStaff.filter(name => Boolean(staffBiometrics[name])).length;
 
-    // Populate weekly staff dropdown
-    function populateWeeklyStaffDropdown() {
-      const dropdown = document.getElementById('weekly-staff-name');
-      dropdown.innerHTML = '<option value="">-- Pilih Nama Staf --</option>';
-      
-      allStaff.forEach(name => {
+      if (progressBadge) {
+        progressBadge.textContent = `📊 Berdaftar Wajah: ${registeredCount} / ${allStaff.length} Staf`;
+      }
+
+      if (!dropdown) return;
+      dropdown.innerHTML = '<option value="">-- Pilih Nama Penuh Anda --</option>';
+
+      const unregisteredStaff = allStaff.filter(name => !staffBiometrics[name]);
+      if (unregisteredStaff.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.disabled = true;
+        opt.textContent = '✅ Semua staf telah mendaftar wajah';
+        dropdown.appendChild(opt);
+        return;
+      }
+
+      unregisteredStaff.forEach(name => {
         const option = document.createElement('option');
         option.value = name;
         option.textContent = name;
@@ -1260,6 +1386,7 @@
 
     // Tab switching
     function switchTab(tab) {
+      stopAllFaceCameras();
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active', 'wobble-click'));
       document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
       
@@ -1269,6 +1396,10 @@
 
       document.getElementById(`content-${tab}`).classList.remove('hidden');
       document.getElementById(`content-${tab}`).classList.add('fade-in');
+
+      if (tab === 'daftar-wajah') {
+        populateRegisterStaffDropdown();
+      }
 
       if (tab === 'dashboard') {
         if (!isDashboardUnlocked) {
@@ -1881,6 +2012,11 @@
       const status = document.getElementById('weekly-attendance-status').value;
       const reason = document.getElementById('weekly-absence-reason').value;
       
+      if (!verifiedAttendanceStaff || staffName !== verifiedAttendanceStaff) {
+        showToast('⛔ Sila imbas & sahkan wajah anda melalui kamera terlebih dahulu!', 'error');
+        return;
+      }
+
       if (!staffName || !startDate || !status) {
         showToast('⚠️ Sila lengkapkan semua maklumat wajib', 'error');
         return;
@@ -1962,8 +2098,9 @@
         if (result.status === 'success') {
           showToast(`✅ Laporan mingguan berjaya dihantar! (5 rekod ditambah: ${displayStart} - ${displayEnd})`, 'success');
           
-          // Reset form
+        // Reset form & pengesahan wajah
           this.reset();
+          resetAttendanceFaceVerification(false);
           document.getElementById('weekly-position-display').classList.add('hidden');
           document.getElementById('weekly-reason-container').classList.add('hidden');
           document.getElementById('weekly-range-preview').classList.add('hidden');
@@ -2972,6 +3109,11 @@
       const nilaiMasaBalikRaw = masaBalikInputEl ? masaBalikInputEl.value.trim() : '';
       const masaBalikFormatted = nilaiMasaBalikRaw ? formatTimeInputToMalay(nilaiMasaBalikRaw) : '';
       const sudahAdaMasaHadir = Boolean(currentStaffTodayRecord && currentStaffTodayRecord.masa_kehadiran);
+
+      if (!verifiedAttendanceStaff || staffName !== verifiedAttendanceStaff) {
+        showToast('⛔ Sila imbas & sahkan wajah anda melalui kamera terlebih dahulu!', 'error');
+        return;
+      }
       
       if (!staffName || !reportDate || !status) {
         showToast('⚠️ Sila lengkapkan semua maklumat wajib', 'error');
@@ -3076,8 +3218,9 @@
           
           showToast(actionText, 'success');
           
-          // Reset form
+          // Reset form & pengesahan wajah
           this.reset();
+          resetAttendanceFaceVerification(false);
           currentStaffTodayRecord = null;
           document.getElementById('position-display').classList.add('hidden');
           document.getElementById('reason-container').classList.add('hidden');
@@ -3403,7 +3546,519 @@
     updateDatePickerConstraints();
     initPrintMonthYearSelectors();
 
-    // Load staff data & GPS zones on page load
+    // =========================================================================
+    // ENJIN PENGECAMAN WAJAH (FACE RECOGNITION - MODEL DARI REPOSITORI GITHUB)
+    // =========================================================================
+    const FACE_MODELS_URL = './models';
+    const FACE_MATCH_THRESHOLD = 0.48;
+
+    let faceModelsLoaded = false;
+    let activeFaceStream = null;
+    let faceScanInterval = null;
+    let capturedRegisterDescriptor = null;
+
+    function parseBiometricDescriptor(rawVal) {
+      if (!rawVal) return null;
+      try {
+        let arr = null;
+        if (Array.isArray(rawVal)) {
+          arr = rawVal;
+        } else {
+          const cleaned = String(rawVal).trim();
+          if (!cleaned) return null;
+          if (cleaned.startsWith('[')) {
+            arr = JSON.parse(cleaned);
+          } else {
+            arr = cleaned.split(',').map(v => parseFloat(v.trim()));
+          }
+        }
+        if (Array.isArray(arr) && arr.length === 128 && arr.every(n => typeof n === 'number' && !isNaN(n))) {
+          return new Float32Array(arr);
+        }
+      } catch (e) {
+        return null;
+      }
+      return null;
+    }
+
+    function updateFaceModelStatusUI(text, isSuccess = false, isError = false) {
+      const regEl = document.getElementById('reg-model-status');
+      const laporEl = document.getElementById('lapor-model-status');
+      if (regEl) {
+        regEl.textContent = text;
+        regEl.className = isError
+          ? 'px-4 py-2.5 rounded-xl text-xs font-semibold bg-red-50 text-red-700 border border-red-200'
+          : isSuccess
+            ? 'px-4 py-2.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200'
+            : 'px-4 py-2.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200';
+      }
+      if (laporEl) {
+        laporEl.textContent = text;
+        laporEl.className = isError
+          ? 'text-xs text-red-300 font-semibold mt-0.5'
+          : isSuccess
+            ? 'text-xs text-emerald-300 font-semibold mt-0.5'
+            : 'text-xs text-slate-300 mt-0.5';
+      }
+    }
+
+    async function loadFaceApiModels() {
+      try {
+        if (typeof faceapi === 'undefined') {
+          throw new Error('Pustaka face-api.js gagal dimuatkan. Semak sambungan internet.');
+        }
+        updateFaceModelStatusUI('⏳ Memuatkan model pengecaman wajah dari folder models GitHub...');
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri(FACE_MODELS_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODELS_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODELS_URL)
+        ]);
+        faceModelsLoaded = true;
+        updateFaceModelStatusUI('✅ Model pengecaman wajah sedia digunakan.', true, false);
+        console.log('✅ Semua model face-api.js berjaya dimuatkan dari:', FACE_MODELS_URL);
+      } catch (err) {
+        console.error('❌ Ralat memuatkan model wajah:', err);
+        faceModelsLoaded = false;
+        updateFaceModelStatusUI('❌ Gagal memuatkan model wajah dari folder ./models GitHub: ' + err.message, false, true);
+      }
+    }
+
+    async function loadBiometricsFromAppsScript() {
+      try {
+        // Muatkan cache tempatan dahulu jika ada
+        const cachedRaw = localStorage.getItem('skup_staff_biometrics_cache');
+        if (cachedRaw) {
+          const cachedMap = JSON.parse(cachedRaw);
+          Object.keys(cachedMap).forEach(nama => {
+            const desc = parseBiometricDescriptor(cachedMap[nama]);
+            if (desc && !staffBiometrics[nama]) {
+              staffBiometrics[nama] = desc;
+            }
+          });
+        }
+
+        const res = await fetch(`${GOOGLE_APPS_SCRIPT_URL}?action=getStaffBiometrics&_t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json && json.status === 'success' && Array.isArray(json.data)) {
+          const cacheToSave = {};
+          json.data.forEach(item => {
+            const nama = (item.nama_staf || '').trim();
+            const desc = parseBiometricDescriptor(item.biometrik_wajah);
+            if (nama && desc) {
+              staffBiometrics[nama] = desc;
+              cacheToSave[nama] = Array.from(desc);
+            }
+          });
+          localStorage.setItem('skup_staff_biometrics_cache', JSON.stringify(cacheToSave));
+          populateRegisterStaffDropdown();
+        }
+      } catch (err) {
+        console.log('ℹ️ Segerak biometrik langsung belum aktif di Apps Script, menggunakan data CSV/lokal:', err.message);
+      }
+    }
+
+    function stopAllFaceCameras() {
+      if (faceScanInterval) {
+        clearInterval(faceScanInterval);
+        faceScanInterval = null;
+      }
+      if (activeFaceStream) {
+        activeFaceStream.getTracks().forEach(track => track.stop());
+        activeFaceStream = null;
+      }
+      ['reg-video', 'lapor-video'].forEach(id => {
+        const v = document.getElementById(id);
+        if (v) v.srcObject = null;
+      });
+      const regWrap = document.getElementById('reg-camera-wrapper');
+      const laporWrap = document.getElementById('lapor-camera-wrapper');
+      if (regWrap) regWrap.classList.add('hidden');
+      if (laporWrap) laporWrap.classList.add('hidden');
+    }
+
+    function buildFaceMatcher() {
+      const labeledDescriptors = [];
+      Object.keys(staffBiometrics).forEach(nama => {
+        const desc = staffBiometrics[nama];
+        if (desc && desc.length === 128) {
+          labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(nama, [desc]));
+        }
+      });
+      if (labeledDescriptors.length === 0) return null;
+      return new faceapi.FaceMatcher(labeledDescriptors, FACE_MATCH_THRESHOLD);
+    }
+
+    // --- FUNGSI TAB 1B: DAFTAR WAJAH STAF (KALI PERTAMA SAHAJA) ---
+    async function startRegisterCamera() {
+      if (!faceModelsLoaded) {
+        showToast('⏳ Sila tunggu model pengecaman wajah selesai dimuatkan...', 'error');
+        return;
+      }
+      stopAllFaceCameras();
+      capturedRegisterDescriptor = null;
+
+      const stepDropdown = document.getElementById('reg-step-dropdown');
+      const camWrap = document.getElementById('reg-camera-wrapper');
+      const video = document.getElementById('reg-video');
+      const canvas = document.getElementById('reg-canvas');
+      const statusEl = document.getElementById('reg-face-status');
+      const captureBtn = document.getElementById('btn-capture-reg');
+      const resetBtn = document.getElementById('btn-reset-reg');
+
+      if (stepDropdown) stepDropdown.classList.add('hidden');
+      if (resetBtn) resetBtn.classList.add('hidden');
+      if (captureBtn) captureBtn.disabled = true;
+
+      try {
+        activeFaceStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 360 } },
+          audio: false
+        });
+        video.srcObject = activeFaceStream;
+        await video.play();
+        camWrap.classList.remove('hidden');
+
+        statusEl.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-500/20 text-blue-200 border border-blue-400/40';
+        statusEl.textContent = '📷 Kamera aktif. Sila hadapkan wajah anda tepat ke kamera...';
+
+        faceScanInterval = setInterval(async () => {
+          if (!video || video.readyState < 2) return;
+          const detections = await faceapi.detectAllFaces(video);
+          const ctx = canvas.getContext('2d');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          if (detections.length === 0) {
+            captureBtn.disabled = true;
+            statusEl.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40';
+            statusEl.textContent = '⚠️ Tiada wajah dikesan. Sila pastikan wajah berada di tengah kamera dengan cahaya mencukupi.';
+          } else if (detections.length > 1) {
+            captureBtn.disabled = true;
+            statusEl.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-red-500/25 text-red-200 border border-red-400/50';
+            statusEl.textContent = '⛔ Lebih daripada satu wajah dikesan! Pastikan hanya seorang staf sahaja di hadapan kamera.';
+          } else {
+            const box = detections[0].box;
+            ctx.strokeStyle = '#34d399';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+            captureBtn.disabled = false;
+            statusEl.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500/25 text-emerald-200 border border-emerald-400/50';
+            statusEl.textContent = '✅ Wajah dikesan dengan jelas! Tekan butang "📸 Imbas & Kunci Wajah" sekarang.';
+          }
+        }, 500);
+      } catch (err) {
+        console.error('❌ Ralat kamera daftar wajah:', err);
+        statusEl.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-red-500/25 text-red-200 border border-red-400/50';
+        statusEl.textContent = '⛔ Gagal mengakses kamera. Sila benarkan kebenaran kamera pada pelayar anda.';
+        showToast('❌ Akses kamera ditolak atau tidak tersedia.', 'error');
+      }
+    }
+
+    async function captureRegisterFace() {
+      const video = document.getElementById('reg-video');
+      const statusEl = document.getElementById('reg-face-status');
+      const captureBtn = document.getElementById('btn-capture-reg');
+      const resetBtn = document.getElementById('btn-reset-reg');
+      const stepDropdown = document.getElementById('reg-step-dropdown');
+
+      if (!video || video.readyState < 2) {
+        showToast('⚠️ Kamera belum bersedia.', 'error');
+        return;
+      }
+
+      captureBtn.disabled = true;
+      statusEl.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-500/20 text-blue-200 border border-blue-400/40';
+      statusEl.textContent = '🔍 Sedang mengekstrak kod biometrik 128-titik wajah anda...';
+
+      try {
+        const detection = await faceapi
+          .detectSingleFace(video)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (!detection || !detection.descriptor) {
+          captureBtn.disabled = false;
+          statusEl.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40';
+          statusEl.textContent = '⚠️ Wajah kurang jelas. Sila kekal tenang, pandang kamera dan cuba tekan semula.';
+          return;
+        }
+
+        // Semak jika wajah ini sudah pernah didaftarkan atas nama staf lain (elak pendaftaran berganda)
+        const existingMatcher = buildFaceMatcher();
+        if (existingMatcher) {
+          const bestMatch = existingMatcher.findBestMatch(detection.descriptor);
+          if (bestMatch.label !== 'unknown' && bestMatch.distance < 0.45) {
+            captureBtn.disabled = false;
+            statusEl.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-red-500/25 text-red-200 border border-red-400/50';
+            statusEl.textContent = `⛔ Wajah ini sudah didaftarkan atas nama "${bestMatch.label}". Satu wajah hanya dibenarkan untuk satu akaun staf sahaja.`;
+            showToast(`⛔ Wajah telah berdaftar atas nama ${bestMatch.label}!`, 'error');
+            return;
+          }
+        }
+
+        capturedRegisterDescriptor = Array.from(detection.descriptor).map(n => Number(n.toFixed(4)));
+        stopAllFaceCameras();
+
+        statusEl.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500/25 text-emerald-200 border border-emerald-400/50';
+        statusEl.textContent = '✅ Imbasan wajah berjaya dikunci! Sila pilih nama penuh anda di Langkah 2 dan tekan Simpan.';
+        resetBtn.classList.remove('hidden');
+
+        populateRegisterStaffDropdown();
+        document.getElementById('register-staff-name').value = '';
+        document.getElementById('register-position-display').classList.add('hidden');
+        stepDropdown.classList.remove('hidden');
+        stepDropdown.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (err) {
+        console.error('❌ Ralat tangkap wajah:', err);
+        captureBtn.disabled = false;
+        showToast('❌ Ralat semasa mengimbas wajah: ' + err.message, 'error');
+      }
+    }
+
+    function resetRegisterFace() {
+      stopAllFaceCameras();
+      capturedRegisterDescriptor = null;
+      document.getElementById('reg-step-dropdown').classList.add('hidden');
+      document.getElementById('btn-reset-reg').classList.add('hidden');
+      document.getElementById('btn-capture-reg').disabled = true;
+      const statusEl = document.getElementById('reg-face-status');
+      statusEl.className = 'px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40';
+      statusEl.textContent = 'ℹ️ Tekan "Hidupkan Kamera" untuk membuat imbasan wajah semula.';
+    }
+
+    function handleRegisterStaffChange() {
+      const nama = document.getElementById('register-staff-name').value;
+      const posDisplay = document.getElementById('register-position-display');
+      const posText = document.getElementById('register-position-text');
+      if (nama && staffData[nama]) {
+        posText.textContent = staffData[nama];
+        posDisplay.classList.remove('hidden');
+      } else {
+        posDisplay.classList.add('hidden');
+      }
+    }
+
+    async function saveRegisteredFace() {
+      const namaStaf = document.getElementById('register-staff-name').value;
+      if (!capturedRegisterDescriptor || capturedRegisterDescriptor.length !== 128) {
+        showToast('⚠️ Sila imbas wajah anda terlebih dahulu!', 'error');
+        return;
+      }
+      if (!namaStaf) {
+        showToast('⚠️ Sila pilih nama penuh anda daripada senarai dropdown!', 'error');
+        return;
+      }
+      if (staffBiometrics[namaStaf]) {
+        showToast('⛔ Staf ini sudah mempunyai rekod wajah berdaftar!', 'error');
+        populateRegisterStaffDropdown();
+        return;
+      }
+
+      const btn = document.getElementById('btn-save-face');
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner"></div><span>Menyimpan Biometrik Wajah ke Google Sheet...</span>';
+
+      try {
+        const biometrikString = JSON.stringify(capturedRegisterDescriptor);
+        const url = new URL(GOOGLE_APPS_SCRIPT_URL);
+        url.searchParams.append('action', 'saveFaceBiometric');
+        url.searchParams.append('nama_staf', namaStaf);
+        url.searchParams.append('biometrik_wajah', biometrikString);
+
+        const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+        if (!response.ok) {
+          throw new Error('Ralat rangkaian semasa menyimpan biometrik wajah.');
+        }
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          staffBiometrics[namaStaf] = new Float32Array(capturedRegisterDescriptor);
+          try {
+            const cachedRaw = localStorage.getItem('skup_staff_biometrics_cache');
+            const cachedMap = cachedRaw ? JSON.parse(cachedRaw) : {};
+            cachedMap[namaStaf] = capturedRegisterDescriptor;
+            localStorage.setItem('skup_staff_biometrics_cache', JSON.stringify(cachedMap));
+          } catch (e) {}
+
+          populateRegisterStaffDropdown();
+          resetRegisterFace();
+          showToast(`✅ Wajah ${namaStaf} berjaya didaftarkan! Sila ke tab Lapor Kehadiran untuk imbas wajah dan isi laporan.`, 'success');
+        } else {
+          throw new Error(result.message || 'Gagal menyimpan biometrik wajah di Apps Script.');
+        }
+      } catch (err) {
+        console.error('❌ Ralat simpan biometrik:', err);
+        showToast('❌ ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    }
+
+    // --- FUNGSI TAB 1: IMBAS WAJAH PENGESAHAN IDENTITI LAPOR KEHADIRAN ---
+    function applyVerifiedStaffToAttendance(matchedName) {
+      verifiedAttendanceStaff = matchedName;
+      const jawatan = staffData[matchedName] || '';
+
+      const dailyInput = document.getElementById('staff-name');
+      const weeklyInput = document.getElementById('weekly-staff-name');
+      if (dailyInput) dailyInput.value = matchedName;
+      if (weeklyInput) weeklyInput.value = matchedName;
+
+      document.getElementById('position-text').textContent = jawatan;
+      document.getElementById('position-display').classList.remove('hidden');
+
+      document.getElementById('weekly-position-text').textContent = jawatan;
+      document.getElementById('weekly-position-display').classList.remove('hidden');
+
+      const statusEl = document.getElementById('lapor-face-status');
+      statusEl.className = 'px-3.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-500/25 text-emerald-200 border border-emerald-400/50';
+      statusEl.textContent = `✅ IDENTITI DISAHKAN: ${matchedName} (${jawatan}). Nama & jawatan anda telah dikunci secara automatik.`;
+
+      document.getElementById('btn-start-lapor-scan').classList.add('hidden');
+      document.getElementById('btn-reset-lapor-scan').classList.remove('hidden');
+
+      checkSelectedStaffTodayRecord();
+      validateRealtimeAttendanceWindow();
+    }
+
+    function resetAttendanceFaceVerification(showMessage = false) {
+      stopAllFaceCameras();
+      verifiedAttendanceStaff = '';
+
+      const dailyInput = document.getElementById('staff-name');
+      const weeklyInput = document.getElementById('weekly-staff-name');
+      if (dailyInput) dailyInput.value = '';
+      if (weeklyInput) weeklyInput.value = '';
+
+      document.getElementById('position-display').classList.add('hidden');
+      document.getElementById('weekly-position-display').classList.add('hidden');
+
+      const statusEl = document.getElementById('lapor-face-status');
+      if (statusEl) {
+        statusEl.className = 'px-3.5 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40';
+        statusEl.textContent = '🔒 Sila tekan butang "Imbas Wajah Staf" untuk mengesahkan identiti anda sebelum mengisi laporan kehadiran.';
+      }
+
+      const startBtn = document.getElementById('btn-start-lapor-scan');
+      const resetBtn = document.getElementById('btn-reset-lapor-scan');
+      if (startBtn) startBtn.classList.remove('hidden');
+      if (resetBtn) resetBtn.classList.add('hidden');
+
+      currentStaffTodayRecord = null;
+      validateRealtimeAttendanceWindow();
+
+      if (showMessage) {
+        showToast('🔄 Pengesahan wajah diset semula. Sila imbas wajah semula.', 'success');
+      }
+    }
+
+    async function startAttendanceFaceScan() {
+      if (!faceModelsLoaded) {
+        showToast('⏳ Model pengecaman wajah masih dimuatkan. Sila tunggu sebentar...', 'error');
+        return;
+      }
+
+      const statusEl = document.getElementById('lapor-face-status');
+      statusEl.className = 'px-3.5 py-2.5 rounded-xl text-xs font-bold bg-blue-500/20 text-blue-200 border border-blue-400/40';
+      statusEl.textContent = '🔄 Menyegerakkan data biometrik wajah staf dari Google Sheet...';
+
+      await loadBiometricsFromAppsScript();
+      const faceMatcher = buildFaceMatcher();
+      if (!faceMatcher) {
+        statusEl.className = 'px-3.5 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40';
+        statusEl.textContent = '⚠️ Belum ada rekod wajah berdaftar. Sila daftar wajah kali pertama di tab "Daftar Wajah (Kali Pertama)" terlebih dahulu.';
+        showToast('⚠️ Belum ada staf mendaftar wajah. Sila daftar wajah dahulu.', 'error');
+        return;
+      }
+
+      stopAllFaceCameras();
+      const camWrap = document.getElementById('lapor-camera-wrapper');
+      const video = document.getElementById('lapor-video');
+      const canvas = document.getElementById('lapor-canvas');
+
+      try {
+        activeFaceStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 360 } },
+          audio: false
+        });
+        video.srcObject = activeFaceStream;
+        await video.play();
+        camWrap.classList.remove('hidden');
+
+        statusEl.className = 'px-3.5 py-2.5 rounded-xl text-xs font-bold bg-blue-500/20 text-blue-200 border border-blue-400/40';
+        statusEl.textContent = '📷 Mengimbas wajah... Sila pandang tepat ke arah kamera.';
+
+        let lastMatchedName = '';
+        let consecutiveMatchCount = 0;
+
+        faceScanInterval = setInterval(async () => {
+          if (!video || video.readyState < 2) return;
+
+          const detection = await faceapi
+            .detectSingleFace(video)
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+
+          const ctx = canvas.getContext('2d');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          if (!detection) {
+            consecutiveMatchCount = 0;
+            lastMatchedName = '';
+            statusEl.className = 'px-3.5 py-2.5 rounded-xl text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40';
+            statusEl.textContent = '⚠️ Tiada wajah dikesan. Sila hadapkan wajah anda ke kamera.';
+            return;
+          }
+
+          const box = detection.detection.box;
+          const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+
+          if (bestMatch.label !== 'unknown') {
+            ctx.strokeStyle = '#34d399';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+            if (bestMatch.label === lastMatchedName) {
+              consecutiveMatchCount++;
+            } else {
+              lastMatchedName = bestMatch.label;
+              consecutiveMatchCount = 1;
+            }
+
+            statusEl.className = 'px-3.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-500/25 text-emerald-200 border border-emerald-400/50';
+            statusEl.textContent = `🔍 Mengesahkan identiti: ${bestMatch.label}... (${consecutiveMatchCount}/2)`;
+
+            if (consecutiveMatchCount >= 2) {
+              stopAllFaceCameras();
+              applyVerifiedStaffToAttendance(bestMatch.label);
+              showToast(`✅ Wajah disahkan: ${bestMatch.label}`, 'success');
+            }
+          } else {
+            consecutiveMatchCount = 0;
+            lastMatchedName = '';
+            ctx.strokeStyle = '#f87171';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+            statusEl.className = 'px-3.5 py-2.5 rounded-xl text-xs font-bold bg-red-500/25 text-red-200 border border-red-400/50';
+            statusEl.textContent = '❌ Wajah tidak dikenali! Pastikan pencahayaan jelas atau daftar wajah anda di tab "Daftar Wajah (Kali Pertama)".';
+          }
+        }, 650);
+      } catch (err) {
+        console.error('❌ Ralat kamera lapor kehadiran:', err);
+        statusEl.className = 'px-3.5 py-2.5 rounded-xl text-xs font-bold bg-red-500/25 text-red-200 border border-red-400/50';
+        statusEl.textContent = '⛔ Gagal mengakses kamera. Sila benarkan kebenaran kamera pada pelayar anda.';
+        showToast('❌ Akses kamera ditolak atau tidak tersedia.', 'error');
+      }
+    }
+
+    // Load face models, staff data & GPS zones on page load
+    loadFaceApiModels();
     loadStaffFromCSV();
     loadGpsZonesFromSheet();
     startGpsMonitoring();
