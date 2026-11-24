@@ -417,8 +417,8 @@
             </div>
           </div>
 
-          <!-- Mode Toggle: Harian vs Mingguan -->
-          <div class="flex gap-3 mb-8 bg-gradient-to-r from-teal-50 to-emerald-50 p-4 rounded-xl border border-teal-200">
+          <!-- Mode Toggle: Harian vs Tidak Hadir 2-5 Hari -->
+          <div class="flex flex-col sm:flex-row gap-3 mb-8 bg-gradient-to-r from-teal-50 to-emerald-50 p-4 rounded-xl border border-teal-200">
             <button onclick="switchReportMode('harian')" id="btn-mode-harian" class="flex-1 py-3 px-4 font-semibold rounded-lg transition-all report-mode-btn report-mode-active bg-white text-teal-700 shadow-md">
               <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10m-10 0H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-1m-1 0V5a2 2 0 00-2-2h-2a2 2 0 00-2 2v4M9 17h6"/>
@@ -429,7 +429,7 @@
               <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
               </svg>
-              Lapor Mingguan
+              Lapor Tidak Hadir (2–5 Hari)
             </button>
           </div>
 
@@ -601,43 +601,46 @@
               </div>
             </div>
 
-            <!-- Tarikh Mula (Isnin) -->
-            <div class="space-y-2">
-              <label for="weekly-start-date" class="block text-sm font-semibold text-gray-700">Tarikh Mula (Isnin) <span class="text-red-500">*</span></label>
-              <input type="date" id="weekly-start-date" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white">
-              <p id="weekly-date-hint" class="text-xs font-medium text-gray-600">* Hanya hari Isnin sahaja (Tiada backdate & maksimum 1 minggu hadapan: Isnin - Jumaat)</p>
-            </div>
-
-            <!-- Tarikh Akhir Display (Jumaat) -->
-            <div class="space-y-2">
-              <label class="block text-sm font-semibold text-gray-700">Tarikh Akhir (Jumaat)</label>
-              <div id="weekly-end-date-display" class="w-full px-4 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl border-2 border-teal-300 font-semibold text-teal-700 text-center">
-                Pilih tarikh mula terlebih dahulu
+            <!-- Kalendar Interaktif Highlight Tarikh Cuti / Tidak Hadir (2 - 5 Hari Berturut-Turut) -->
+            <div class="space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <label class="block text-sm font-semibold text-gray-700">
+                  Highlight Tarikh Cuti / Tidak Hadir (2 hingga 5 Hari Berturut-turut) <span class="text-red-500">*</span>
+                </label>
+                <button type="button" onclick="clearMultiDaySelection(true)" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg border border-red-200 transition-all">
+                  🔄 Kosongkan Highlight
+                </button>
               </div>
+              <p id="weekly-date-hint" class="text-xs font-medium text-gray-600">
+                * Klik pada kotak tarikh untuk highlight hari tidak hadir (Minimum 2 hari, maksimum 5 hari berturut-turut dalam minggu yang sama sahaja. Tidak boleh berselang hari & tidak boleh melangkau ke minggu hadapan).
+              </p>
+
+              <!-- Grid Kalendar Mingguan -->
+              <div id="multiday-calendar-grid" class="space-y-4"></div>
             </div>
 
-            <!-- Julat Mingguan Preview -->
-            <div id="weekly-range-preview" class="hidden px-4 py-3 bg-blue-50 border-l-4 border-blue-500 rounded">
-              <p class="text-sm text-blue-800">
-                <strong>📅 Laporan untuk:</strong> <span id="weekly-range-text" class="font-semibold"></span>
+            <!-- Status & Pratonton Tarikh Yang Di-highlight -->
+            <div id="weekly-range-preview" class="px-4 py-3 bg-amber-50 border-l-4 border-amber-500 rounded-xl">
+              <p id="weekly-range-text" class="text-xs md:text-sm font-bold text-amber-900">
+                ℹ️ Sila klik & highlight sekurang-kurangnya 2 tarikh berturut-turut pada kalendar di atas.
               </p>
             </div>
 
-            <!-- Status Kehadiran (Sama untuk semua hari) -->
+            <!-- Status Kehadiran (Sama untuk semua tarikh di-highlight) -->
             <div class="space-y-2">
-              <label for="weekly-attendance-status" class="block text-sm font-semibold text-gray-700">Status Kehadiran (Sama untuk semua hari Isnin-Jumaat) <span class="text-red-500">*</span></label>
+              <label for="weekly-attendance-status" class="block text-sm font-semibold text-gray-700">Status Kehadiran (Sama untuk semua tarikh di-highlight) <span class="text-red-500">*</span></label>
               <select id="weekly-attendance-status" required class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white">
                 <option value="">-- Pilih Status --</option>
                 <option value="Hadir" disabled>🚫 Hadir (Tidak Dibenarkan - Wajib Isi Harian Mengikut Masa Nyata)</option>
-                <option value="Tidak Hadir">❌ Tidak Hadir (Semua Hari Isnin - Jumaat)</option>
+                <option value="Tidak Hadir">❌ Tidak Hadir (Bagi Semua Tarikh Di-highlight)</option>
               </select>
-              <p class="text-xs text-amber-700 font-medium">* Laporan Mingguan (5 hari sekaligus) hanya dibenarkan untuk status Tidak Hadir sahaja.</p>
+              <p class="text-xs text-amber-700 font-medium">* Mod ini khusus untuk Tidak Hadir 2 hingga 5 hari berturut-turut sahaja. Bagi ketidakhadiran 1 hari, sila guna Lapor Harian.</p>
             </div>
 
-            <!-- Sebab Tidak Hadir (Sama untuk semua hari) -->
+            <!-- Sebab Tidak Hadir (Sama untuk semua tarikh di-highlight) -->
             <div id="weekly-reason-container" class="space-y-2 hidden">
-              <label for="weekly-absence-reason" class="block text-sm font-semibold text-gray-700">Sebab Tidak Hadir (Sama untuk semua hari) <span class="text-red-500">*</span></label>
-              <textarea id="weekly-absence-reason" rows="3" placeholder="Sila nyatakan sebab tidak hadir untuk semua hari dalam minggu ini..." class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white resize-none"></textarea>
+              <label for="weekly-absence-reason" class="block text-sm font-semibold text-gray-700">Sebab Tidak Hadir (Sama untuk semua tarikh dipilih) <span class="text-red-500">*</span></label>
+              <textarea id="weekly-absence-reason" rows="3" placeholder="Sila nyatakan sebab tidak hadir (contoh: Cuti Sakit / Kursus / Urusan Rasmi)..." class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all bg-gray-50 hover:bg-white resize-none"></textarea>
             </div>
 
            <!-- Submit Button -->
@@ -646,7 +649,7 @@
                 <svg id="weekly-submit-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
-                <span id="weekly-submit-text">Hantar Laporan Mingguan</span>
+                <span id="weekly-submit-text">Hantar Laporan Tidak Hadir (2–5 Hari)</span>
               </button>
             </div>
           </form>
@@ -1137,7 +1140,7 @@
 
   <script>
     // ✅ CONFIGURATION - Google Apps Script & CSV URLs
-    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsytwKK9jjIHoI-Ro3Inhk4iOKhXODRRH64U-0hBHJq6y_jejQcnZqHnuBV2CLPrOdpg/exec';
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyyzK_4nL2qJ4kf-TDHcRrVyes4ftETO3m8YukoQPJq2g_ZXn0kA0nV2zczHGBA-vkphw/exec';
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRUfMMU_QAAPE9Y3bp1DtBCy7WSNYP5U3t6D8Jixmj2TpQpj_Qsns27s3ZMoboQwpHKA0Y3j2Db2k24/pub?gid=0&single=true&output=csv';
 
 let staffData = {};
@@ -1415,7 +1418,7 @@ let staffData = {};
       }
     }
 
-    // Report Mode Switching (Harian vs Mingguan)
+    // Report Mode Switching (Harian vs Tidak Hadir 2-5 Hari)
     function switchReportMode(mode) {
       const dailyForm = document.getElementById('attendance-form');
       const weeklyForm = document.getElementById('weekly-attendance-form');
@@ -1438,6 +1441,7 @@ let staffData = {};
         dailyBtn.classList.remove('report-mode-active', 'bg-white', 'shadow-md', 'text-teal-700');
         dailyBtn.classList.add('text-gray-600');
         triggerWobbleEffect(weeklyBtn);
+        renderMultiDayCalendar();
       }
     }
 
@@ -1768,87 +1772,254 @@ let staffData = {};
       }
     });
 
-// Weekly start date change handler (Tab Lapor Mingguan: Boleh tambah 1 minggu ke depan Isnin - Jumaat)
-    document.getElementById('weekly-start-date').addEventListener('change', function() {
-      if (!this.value) {
-        document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
-        document.getElementById('weekly-range-preview').classList.add('hidden');
-        return;
-      }
+// Enjin Kalendar Highlight Tarikh Cuti / Tidak Hadir (2 - 5 Hari Berturut-Turut Dalam Minggu Sama Sahaja)
+    let selectedMultiDates = [];
 
+    function getMultiDayWeekDefinitions() {
       const bounds = getAttendanceDateBounds();
+      const today = bounds.today;
+      const dow = today.getDay(); // 0=Ahad, 1=Isnin ... 6=Sabtu
+      const diffToMonday = dow === 0 ? -6 : (1 - dow);
+      const currentMonday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + diffToMonday);
+      const nextMonday = new Date(currentMonday.getFullYear(), currentMonday.getMonth(), currentMonday.getDate() + 7);
 
-      // Parse tarikh yang dipilih sebagai tarikh tempatan
-      const parts = this.value.split('-');
-      const year = parseInt(parts[0]);
-      const month = parseInt(parts[1]) - 1;
-      const day = parseInt(parts[2]);
-      const selectedDate = new Date(year, month, day);
-      const dayOfWeek = selectedDate.getDay();
+      const namaHari = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'];
+      const namaBulanPendek = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'];
 
-      // 1. Sekat hari Sabtu (6) dan Ahad (0)
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        showToast('⛔ Hari Sabtu dan Ahad dikunci! Hanya hari Isnin hingga Jumaat dibenarkan.', 'error');
-        this.value = '';
-        document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
-        document.getElementById('weekly-range-preview').classList.add('hidden');
+      const buildWeek = (mondayDate, weekIdx, title) => {
+        const days = [];
+        for (let offset = 0; offset < 7; offset++) {
+          const d = new Date(mondayDate.getFullYear(), mondayDate.getMonth(), mondayDate.getDate() + offset);
+          const ymd = formatLocalYMD(d);
+          const dayOfWeek = d.getDay();
+          const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+          const isPast = ymd < bounds.todayYMD;
+          days.push({
+            ymd,
+            weekIdx,
+            dayNum: offset + 1, // 1=Isnin .. 5=Jumaat, 6=Sabtu, 7=Ahad
+            dayName: namaHari[dayOfWeek],
+            shortDate: `${d.getDate()} ${namaBulanPendek[d.getMonth()]} ${d.getFullYear()}`,
+            displayDMY: formatDisplayDMY(d),
+            isWeekend,
+            isPast,
+            unlockedWorkday: !isWeekend && !isPast
+          });
+        }
+        const unlockedWorkdayCount = days.filter(item => item.unlockedWorkday).length;
+        return {
+          weekIdx,
+          title,
+          rangeLabel: `${days[0].displayDMY} – ${days[4].displayDMY}`,
+          days,
+          unlockedWorkdayCount
+        };
+      };
+
+      return [
+        buildWeek(currentMonday, 0, 'Minggu Semasa (Minggu Ini)'),
+        buildWeek(nextMonday, 1, 'Minggu Hadapan (1 Minggu Ke Depan)')
+      ];
+    }
+
+    function updateMultiDaySummaryUI() {
+      const previewBox = document.getElementById('weekly-range-preview');
+      const previewText = document.getElementById('weekly-range-text');
+      if (!previewBox || !previewText) return;
+
+      if (selectedMultiDates.length === 0) {
+        previewBox.className = 'px-4 py-3 bg-amber-50 border-l-4 border-amber-500 rounded-xl';
+        previewText.className = 'text-xs md:text-sm font-bold text-amber-900';
+        previewText.textContent = 'ℹ️ Sila klik & highlight sekurang-kurangnya 2 tarikh berturut-turut dalam minggu yang sama pada kalendar di atas.';
+      } else if (selectedMultiDates.length === 1) {
+        const d0 = selectedMultiDates[0];
+        previewBox.className = 'px-4 py-3 bg-orange-50 border-l-4 border-orange-500 rounded-xl';
+        previewText.className = 'text-xs md:text-sm font-bold text-orange-900';
+        previewText.textContent = `⚠️ Baru 1 hari di-highlight (${d0.dayName}, ${d0.displayDMY}). Sila highlight sekurang-kurangnya 1 lagi tarikh bersebelahan dalam minggu ini (Minimum 2 hari).`;
+      } else {
+        const first = selectedMultiDates[0];
+        const last = selectedMultiDates[selectedMultiDates.length - 1];
+        const senaraiHari = selectedMultiDates.map(d => `${d.dayName} (${d.displayDMY.slice(0, 5)})`).join(' → ');
+        previewBox.className = 'px-4 py-3 bg-emerald-50 border-l-4 border-emerald-600 rounded-xl';
+        previewText.className = 'text-xs md:text-sm font-bold text-emerald-900';
+        previewText.textContent = `✅ Cuti / Tidak Hadir Sah (${selectedMultiDates.length} Hari Berturut-turut): ${first.displayDMY} hingga ${last.displayDMY} [${senaraiHari}]`;
+      }
+    }
+
+    function renderMultiDayCalendar() {
+      const gridEl = document.getElementById('multiday-calendar-grid');
+      if (!gridEl) return;
+
+      const weeks = getMultiDayWeekDefinitions();
+      const hasSelection = selectedMultiDates.length > 0;
+      const activeWeekIdx = hasSelection ? selectedMultiDates[0].weekIdx : null;
+      const minDay = hasSelection ? selectedMultiDates[0].dayNum : null;
+      const maxDay = hasSelection ? selectedMultiDates[selectedMultiDates.length - 1].dayNum : null;
+
+      let html = '';
+
+      weeks.forEach(week => {
+        const isInsufficientDays = week.unlockedWorkdayCount < 2;
+        const badgeRight = week.unlockedWorkdayCount === 0
+          ? '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-200 text-slate-600">Telah Berlalu</span>'
+          : isInsufficientDays
+            ? '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">Baki 1 Hari — Guna Lapor Harian</span>'
+            : (activeWeekIdx === week.weekIdx
+                ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-600 text-white">${selectedMultiDates.length} Hari Di-highlight</span>`
+                : '<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-100 text-teal-800">Pilih Minggu Ini Sahaja</span>');
+
+        let cardsHtml = '';
+        week.days.forEach(day => {
+          const selectedIdx = selectedMultiDates.findIndex(s => s.ymd === day.ymd);
+          const isSelected = selectedIdx !== -1;
+
+          if (day.isWeekend) {
+            cardsHtml += `
+              <button type="button" disabled class="p-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed text-left opacity-75">
+                <span class="block text-[10px] font-extrabold uppercase tracking-wider text-rose-400">🔒 Dikunci</span>
+                <span class="block text-xs font-extrabold mt-0.5">${day.dayName}</span>
+                <span class="block text-[11px] font-medium">${day.shortDate}</span>
+              </button>
+            `;
+          } else if (day.isPast) {
+            cardsHtml += `
+              <button type="button" disabled class="p-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed text-left opacity-70">
+                <span class="block text-[10px] font-extrabold uppercase tracking-wider">🔒 Lepas</span>
+                <span class="block text-xs font-extrabold mt-0.5">${day.dayName}</span>
+                <span class="block text-[11px] font-medium">${day.shortDate}</span>
+              </button>
+            `;
+          } else if (isSelected) {
+            cardsHtml += `
+              <button type="button" onclick="toggleMultiDayDate('${day.ymd}')" class="p-2.5 rounded-xl border-2 border-cyan-200 bg-gradient-to-br from-teal-600 via-indigo-600 to-emerald-600 text-white shadow-lg ring-2 ring-teal-400 transform -translate-y-0.5 transition-all text-left">
+                <span class="block text-[10px] font-extrabold uppercase tracking-wider text-cyan-100">✓ CUTI (#${selectedIdx + 1})</span>
+                <span class="block text-sm font-extrabold mt-0.5">${day.dayName}</span>
+                <span class="block text-[11px] font-semibold text-emerald-100">${day.shortDate}</span>
+              </button>
+            `;
+          } else if (isInsufficientDays) {
+            cardsHtml += `
+              <button type="button" onclick="toggleMultiDayDate('${day.ymd}')" class="p-2.5 rounded-xl border border-amber-200 bg-amber-50/70 text-amber-800 opacity-75 text-left">
+                <span class="block text-[10px] font-bold uppercase tracking-wider">🔒 1 Hari Saja</span>
+                <span class="block text-xs font-extrabold mt-0.5">${day.dayName}</span>
+                <span class="block text-[11px] font-medium">${day.shortDate}</span>
+              </button>
+            `;
+          } else {
+            const isAdjacentValid = hasSelection && activeWeekIdx === week.weekIdx && (day.dayNum === minDay - 1 || day.dayNum === maxDay + 1);
+            const cardStyle = !hasSelection
+              ? 'border-2 border-teal-200 bg-white hover:bg-teal-50 hover:border-teal-500 text-gray-800 shadow-sm'
+              : isAdjacentValid
+                ? 'border-2 border-dashed border-emerald-500 bg-emerald-50/80 hover:bg-emerald-100 text-teal-900 shadow-sm'
+                : 'border border-gray-200 bg-gray-50 text-gray-500 opacity-65 hover:opacity-90';
+            const topTag = !hasSelection
+              ? '<span class="block text-[10px] font-bold uppercase tracking-wider text-teal-600">Klik Highlight</span>'
+              : isAdjacentValid
+                ? '<span class="block text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">+ Bersebelahan</span>'
+                : '<span class="block text-[10px] font-semibold uppercase tracking-wider text-gray-400">Tidak Sebelah</span>';
+
+            cardsHtml += `
+              <button type="button" onclick="toggleMultiDayDate('${day.ymd}')" class="p-2.5 rounded-xl transition-all text-left ${cardStyle}">
+                ${topTag}
+                <span class="block text-sm font-bold mt-0.5">${day.dayName}</span>
+                <span class="block text-[11px] font-medium">${day.shortDate}</span>
+              </button>
+            `;
+          }
+        });
+
+        html += `
+          <div class="p-4 rounded-2xl border-2 ${activeWeekIdx === week.weekIdx ? 'border-teal-400 bg-teal-50/50' : 'border-slate-200 bg-slate-50/70'} space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 class="text-sm font-extrabold text-slate-800">${week.title}</h4>
+                <p class="text-[11px] text-slate-500 font-medium">Hari Bekerja: ${week.rangeLabel} (Sabtu & Ahad Dikunci)</p>
+              </div>
+              ${badgeRight}
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+              ${cardsHtml}
+            </div>
+          </div>
+        `;
+      });
+
+      gridEl.innerHTML = html;
+      updateMultiDaySummaryUI();
+    }
+
+    function toggleMultiDayDate(ymd) {
+      const weeks = getMultiDayWeekDefinitions();
+      let targetWeek = null;
+      let targetDay = null;
+
+      for (const w of weeks) {
+        const found = w.days.find(d => d.ymd === ymd);
+        if (found) {
+          targetWeek = w;
+          targetDay = found;
+          break;
+        }
+      }
+
+      if (!targetDay || targetDay.isWeekend || targetDay.isPast) return;
+
+      // Semak jika tarikh sudah di-highlight (untuk nyahpilih)
+      const existingIdx = selectedMultiDates.findIndex(d => d.ymd === ymd);
+      if (existingIdx !== -1) {
+        if (selectedMultiDates.length > 2 && existingIdx > 0 && existingIdx < selectedMultiDates.length - 1) {
+          showToast('⛔ Tidak boleh nyahpilih tarikh tengah kerana tarikh mesti kekal berturut-turut tanpa selang! Sila nyahpilih dari tarikh tepi atau tekan "Kosongkan Highlight".', 'error');
+          return;
+        }
+        selectedMultiDates.splice(existingIdx, 1);
+        renderMultiDayCalendar();
         return;
       }
 
-      // 2. Sekat tarikh lepas (backdate)
-      if (this.value < bounds.todayYMD) {
-        showToast('⛔ Tarikh lepas (backdate) tidak dibenarkan!', 'error');
-        this.value = '';
-        document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
-        document.getElementById('weekly-range-preview').classList.add('hidden');
+      // Sekat jika minggu tersebut hanya tinggal 1 hari bekerja sahaja
+      if (targetWeek.unlockedWorkdayCount < 2) {
+        showToast('⛔ Minggu ini hanya berbaki 1 hari bekerja sahaja. Untuk tidak hadir 1 hari, sila guna mod Lapor Harian!', 'error');
         return;
       }
 
-      // 3. Sekat pengisian 2 minggu akan datang (maksimum sehingga Jumaat minggu hadapan sahaja)
-      if (this.value > bounds.nextFridayYMD) {
-        showToast(`⛔ Hanya dibenarkan tambah 1 minggu ke depan sahaja (Isnin ${bounds.nextMondayDisplay} - Jumaat ${bounds.nextFridayDisplay}). 2 minggu akan datang dikunci!`, 'error');
-        this.value = '';
-        document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
-        document.getElementById('weekly-range-preview').classList.add('hidden');
-        return;
+      if (selectedMultiDates.length > 0) {
+        const activeWeekIdx = selectedMultiDates[0].weekIdx;
+
+        // 1. Sekat melangkau ke minggu hadapan / minggu berbeza
+        if (targetDay.weekIdx !== activeWeekIdx) {
+          showToast('⛔ Hanya untuk minggu itu sahaja! Tidak boleh melangkau Sabtu & Ahad ke minggu hadapan.', 'error');
+          return;
+        }
+
+        // 2. Sekat tarikh berselang (wajib bersebelahan secara berturut-turut)
+        const minDay = selectedMultiDates[0].dayNum;
+        const maxDay = selectedMultiDates[selectedMultiDates.length - 1].dayNum;
+        if (targetDay.dayNum !== minDay - 1 && targetDay.dayNum !== maxDay + 1) {
+          showToast('⛔ Tidak dibenarkan berselang hari (contoh: Isnin lepas tu Rabu)! Sila highlight tarikh secara berturut-turut sahaja.', 'error');
+          return;
+        }
+
+        // 3. Had maksimum 5 hari bekerja berturut-turut
+        if (selectedMultiDates.length >= 5) {
+          showToast('⛔ Maksimum 5 hari berturut-turut sahaja dibenarkan.', 'error');
+          return;
+        }
       }
 
-      // Dapatkan tarikh Isnin bagi minggu yang dipilih (jika pengguna menekan Selasa-Jumaat pada minggu hadapan)
-      const startDate = new Date(year, month, day - (dayOfWeek - 1));
-      const mondayYMD = formatLocalYMD(startDate);
+      selectedMultiDates.push(targetDay);
+      selectedMultiDates.sort((a, b) => a.dayNum - b.dayNum);
+      renderMultiDayCalendar();
+    }
 
-      // Pastikan hari Isnin minggu tersebut tidak jatuh pada tarikh lepas (backdate)
-      if (mondayYMD < bounds.todayYMD) {
-        showToast(`⛔ Hari Isnin minggu ini telah lepas (tiada backdate). Untuk Lapor Mingguan, sila pilih minggu hadapan (Isnin ${bounds.nextMondayDisplay} - Jumaat ${bounds.nextFridayDisplay}).`, 'error');
-        this.value = '';
-        document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
-        document.getElementById('weekly-range-preview').classList.add('hidden');
-        return;
+    function clearMultiDaySelection(showMsg = false) {
+      selectedMultiDates = [];
+      renderMultiDayCalendar();
+      if (showMsg) {
+        showToast('🔄 Pilihan highlight tarikh telah dikosongkan.', 'success');
       }
+    }
 
-      // Tetapkan input kepada hari Isnin minggu tersebut secara automatik
-      this.value = mondayYMD;
-
-      // Kira hari Jumaat (tarikh akhir) - tepat 4 hari selepas Isnin (5 hari bekerja: Isnin - Jumaat)
-      const endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + 4);
-      const endDateValue = formatLocalYMD(endDate);
-
-      // Format tarikh untuk paparan
-      const startFormatted = startDate.toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const endFormatted = endDate.toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-      console.log('📅 Weekly date range:');
-      console.log('Start:', this.value, '→', startFormatted, '(Isnin)');
-      console.log('End:', endDateValue, '→', endFormatted, '(Jumaat)');
-
-      // Update display
-      document.getElementById('weekly-end-date-display').innerHTML = `<span class="text-center">${endFormatted}</span>`;
-      document.getElementById('weekly-range-text').textContent = `${startFormatted} hingga ${endFormatted} (5 Hari: Isnin - Jumaat)`;
-      document.getElementById('weekly-range-preview').classList.remove('hidden');
-
-      // Store end date for form submission
-      document.getElementById('weekly-start-date').dataset.endDate = endDateValue;
-    });    // Weekly status change handler
+    // Weekly status change handler
     document.getElementById('weekly-attendance-status').addEventListener('change', function() {
       const reasonContainer = document.getElementById('weekly-reason-container');
       const reasonInput = document.getElementById('weekly-absence-reason');
@@ -2003,12 +2174,11 @@ let staffData = {};
       checkSelectedStaffTodayRecord();
     });
 
-    // Weekly form submission
+// Multi-day (2 - 5 consecutive days in same week) form submission
     document.getElementById('weekly-attendance-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
       const staffName = document.getElementById('weekly-staff-name').value;
-      const startDate = document.getElementById('weekly-start-date').value;
       const status = document.getElementById('weekly-attendance-status').value;
       const reason = document.getElementById('weekly-absence-reason').value;
       
@@ -2017,13 +2187,31 @@ let staffData = {};
         return;
       }
 
-      if (!staffName || !startDate || !status) {
+      if (selectedMultiDates.length < 2 || selectedMultiDates.length > 5) {
+        showToast('⛔ Sila highlight minimum 2 hari hingga 5 hari berturut-turut! (Untuk 1 hari sahaja, sila guna Lapor Harian).', 'error');
+        return;
+      }
+
+      // Semakan keselamatan berganda: mesti minggu sama & berturut-turut tanpa selang
+      const baseWeek = selectedMultiDates[0].weekIdx;
+      for (let i = 0; i < selectedMultiDates.length; i++) {
+        if (selectedMultiDates[i].weekIdx !== baseWeek) {
+          showToast('⛔ Pilihan tarikh tidak sah: Tidak boleh melangkau ke minggu hadapan!', 'error');
+          return;
+        }
+        if (i > 0 && selectedMultiDates[i].dayNum !== selectedMultiDates[i - 1].dayNum + 1) {
+          showToast('⛔ Pilihan tarikh tidak sah: Tarikh mesti berturut-turut tanpa selang hari!', 'error');
+          return;
+        }
+      }
+
+      if (!staffName || !status) {
         showToast('⚠️ Sila lengkapkan semua maklumat wajib', 'error');
         return;
       }
 
       if (status === 'Hadir') {
-        showToast('⚠️ Status Hadir tidak dibenarkan diisi secara 5 hari sekaligus', 'error');
+        showToast('⚠️ Status Hadir tidak dibenarkan diisi secara berbilang hari', 'error');
         return;
       }
       
@@ -2039,30 +2227,16 @@ let staffData = {};
       submitBtn.disabled = true;
       submitIcon.innerHTML = '';
       submitIcon.className = 'spinner';
-      submitText.textContent = 'Menghantar laporan mingguan...';
+      submitText.textContent = `Menghantar laporan (${selectedMultiDates.length} hari)...`;
       
       try {
         const timestamp = new Date().toISOString();
         const jawatan = staffData[staffName] || '';
-        
-        // Parse start date correctly (as local date, not UTC)
-        const parts = startDate.split('-');
-        const year = parseInt(parts[0]);
-        const month = parseInt(parts[1]) - 1;
-        const day = parseInt(parts[2]);
-        
-        const startDateObj = new Date(year, month, day);
-        const endDateObj = new Date(year, month, day + 4); // Friday is exactly 4 days after Monday
-        
-        // Format end date as YYYY-MM-DD
-        const endYear = endDateObj.getFullYear();
-        const endMonth = String(endDateObj.getMonth() + 1).padStart(2, '0');
-        const endDay = String(endDateObj.getDate()).padStart(2, '0');
-        const endDate = `${endYear}-${endMonth}-${endDay}`;
-        
-        // Format for display
-        const displayStart = startDateObj.toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const displayEnd = endDateObj.toLocaleDateString('ms-MY', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const totalDays = selectedMultiDates.length;
+        const startDate = selectedMultiDates[0].ymd;
+        const endDate = selectedMultiDates[totalDays - 1].ymd;
+        const displayStart = selectedMultiDates[0].displayDMY;
+        const displayEnd = selectedMultiDates[totalDays - 1].displayDMY;
         
         // Build URL with parameters
         const url = new URL(GOOGLE_APPS_SCRIPT_URL);
@@ -2073,54 +2247,59 @@ let staffData = {};
         url.searchParams.append('tarikh_mula', startDate);
         url.searchParams.append('tarikh_akhir', endDate);
         url.searchParams.append('status_kehadiran', status);
-        url.searchParams.append('sebab_tidak_hadir', status === 'Tidak Hadir' ? reason : '');
+        url.searchParams.append('sebab_tidak_hadir', reason.trim());
         
-        console.log('📤 Sending weekly data to Apps Script:');
-        console.log('Start Date:', startDate, '→', displayStart);
-        console.log('End Date:', endDate, '→', displayEnd);
-        console.log('Duration: 5 hari (Isnin - Jumaat)');
-        console.log('URL:', url.toString());
+        console.log('📤 Sending multi-day absence data to Apps Script:', url.toString());
         
         const response = await fetch(url.toString(), {
           method: 'GET',
           redirect: 'follow'
         });
         
-        console.log('📥 Response status:', response.status);
-        
         if (!response.ok) {
           throw new Error('Ralat rangkaian. Sila cuba lagi.');
         }
         
         const result = await response.json();
-        console.log('📋 Response data:', result);
         
         if (result.status === 'success') {
-          showToast(`✅ Laporan mingguan berjaya dihantar! (5 rekod ditambah: ${displayStart} - ${displayEnd})`, 'success');
+          selectedMultiDates.forEach(d => {
+            saveLocalStaffAttendanceCache(d.ymd, staffName, {
+              timestamp,
+              nama_staf: staffName,
+              jawatan,
+              tarikh_laporan: d.ymd,
+              status_kehadiran: 'Tidak Hadir',
+              sebab_tidak_hadir: reason.trim(),
+              masa_kehadiran: `Tidak Hadir (${totalDays} Hari)`,
+              masa_balik: '',
+              zon_gps: 'Dikecualikan'
+            });
+          });
+
+          showToast(`✅ Laporan Tidak Hadir berjaya dihantar! (${totalDays} hari berturut-turut: ${displayStart} – ${displayEnd})`, 'success');
           
-        // Reset form & pengesahan wajah
+          // Reset form, kalendar highlight & pengesahan wajah
           this.reset();
+          clearMultiDaySelection(false);
           resetAttendanceFaceVerification(false);
           document.getElementById('weekly-position-display').classList.add('hidden');
           document.getElementById('weekly-reason-container').classList.add('hidden');
-          document.getElementById('weekly-range-preview').classList.add('hidden');
-          document.getElementById('weekly-end-date-display').textContent = 'Pilih tarikh mula terlebih dahulu';
           
         } else {
-          throw new Error(result.message || 'Gagal menghantar laporan mingguan');
+          throw new Error(result.message || 'Gagal menghantar laporan tidak hadir');
         }
         
       } catch (error) {
-        console.error('❌ Error submitting weekly form:', error);
+        console.error('❌ Error submitting multi-day form:', error);
         showToast('❌ ' + error.message, 'error');
       } finally {
         submitBtn.disabled = false;
         submitIcon.className = 'w-5 h-5';
         submitIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>';
-        submitText.textContent = 'Hantar Laporan Mingguan';
+        submitText.textContent = 'Hantar Laporan Tidak Hadir (2–5 Hari)';
       }
     });
-
    let isSubmittingDaily = false;
 
     // State Tetapan 1 Zon GPS (Merangkumi Pejabat Sekolah & Dewan Serbaguna)
@@ -2822,22 +3001,18 @@ let staffData = {};
       };
     }
 
-    // Kemas kini sekatan kalendar (min & max) bagi Tab Lapor Harian & Tab Lapor Mingguan
+    // Kemas kini sekatan kalendar bagi Tab Lapor Harian & Tab Lapor Tidak Hadir (2-5 Hari)
     function updateDatePickerConstraints() {
       const bounds = getAttendanceDateBounds();
       const reportDateInput = document.getElementById('report-date');
       const reportDateHint = document.getElementById('report-date-hint');
-      const weeklyStartInput = document.getElementById('weekly-start-date');
       const weeklyDateHint = document.getElementById('weekly-date-hint');
 
-      // 1. TAB LAPOR MINGGUAN: Tiada backdate & boleh dibuat tambah 1 minggu ke depan (Isnin - Jumaat)
-      if (weeklyStartInput) {
-        weeklyStartInput.min = bounds.todayYMD;
-        weeklyStartInput.max = bounds.nextFridayYMD;
-      }
+      // 1. MOD LAPOR TIDAK HADIR (2-5 HARI): Kalendar highlight berturut-turut dalam minggu yang sama sahaja
       if (weeklyDateHint) {
-        weeklyDateHint.textContent = `* Lapor Mingguan (5 Hari Isnin - Jumaat): Boleh ditambah 1 minggu ke depan (${bounds.nextMondayDisplay} hingga ${bounds.nextFridayDisplay}). Sabtu, Ahad, backdate & 2 minggu ke atas dikunci.`;
+        weeklyDateHint.textContent = `* Klik kotak tarikh untuk highlight cuti/tidak hadir (2 hingga 5 hari berturut-turut dalam minggu yang sama sahaja — tiada selang hari, tiada backdate & tidak boleh melangkau ke minggu hadapan).`;
       }
+      renderMultiDayCalendar();
 
       if (!reportDateInput) return;
 
@@ -2893,7 +3068,7 @@ let staffData = {};
         submitBtn.disabled = true;
         submitText.textContent = 'Wajib Tarikh Hari Semasa Sahaja (Hantar Dikunci)';
         infoBox.className = 'mt-2 px-4 py-2.5 rounded-xl text-xs font-semibold border bg-red-50 text-red-700 border-red-200';
-        infoBox.textContent = `⛔ Tab Lapor Harian wajib menggunakan tarikh hari ini sahaja (${bounds.todayDisplay}). Untuk tambah 1 minggu ke depan (Isnin - Jumaat), sila gunakan tab Lapor Mingguan.`;
+        infoBox.textContent = `⛔ Tab Lapor Harian wajib menggunakan tarikh hari ini sahaja (${bounds.todayDisplay}). Untuk tidak hadir 2 hingga 5 hari berturut-turut, sila gunakan Lapor Tidak Hadir (2–5 Hari).`;
         infoBox.classList.remove('hidden');
         return false;
       }
@@ -3066,7 +3241,7 @@ let staffData = {};
 
       // 2. Tab Lapor Harian wajib tarikh hari ini sahaja (tiada backdate & tiada tarikh akan datang)
       if (this.value !== bounds.todayYMD) {
-        showToast(`⛔ Lapor Harian hanya dibenarkan pada tarikh hari semasa sahaja (${bounds.todayDisplay}). Untuk mengisi 1 minggu ke depan (Isnin - Jumaat), sila gunakan Lapor Mingguan!`, 'error');
+        showToast(`⛔ Lapor Harian hanya dibenarkan pada tarikh hari semasa sahaja (${bounds.todayDisplay}). Untuk tidak hadir 2 hingga 5 hari berturut-turut, sila gunakan Lapor Tidak Hadir (2–5 Hari)!`, 'error');
         this.value = bounds.isTodayWeekend ? '' : bounds.todayYMD;
         validateRealtimeAttendanceWindow();
         return;
