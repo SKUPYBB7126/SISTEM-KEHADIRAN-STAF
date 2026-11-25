@@ -865,7 +865,41 @@
                   <input type="number" min="5" max="500" id="gps-zon-radius" oninput="updateZoneFromInputs()" value="30" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-teal-800 bg-white">
                 </div>
               </div>
-              <p class="text-xs text-gray-500">* Laraskan nilai radius (contohnya 20 hingga 40 meter) agar merangkumi Pejabat Sekolah dan Dewan Serbaguna tetapi tidak memasuki kawasan kuarters guru.</p>
+             <p class="text-xs text-gray-500">* Laraskan nilai radius (contohnya 20 hingga 40 meter) agar merangkumi Pejabat Sekolah dan Dewan Serbaguna tetapi tidak memasuki kawasan kuarters guru.</p>
+            </div>
+
+            <!-- Kad Tetapan 2: Titik Kalibrasi Khas iPhone / iOS (Wi-Fi Sekolah) -->
+            <div class="p-6 rounded-2xl border-2 border-indigo-200 bg-indigo-50/40 space-y-4">
+              <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
+                  <span class="text-xs font-bold uppercase text-indigo-700 bg-indigo-100 px-2.5 py-1 rounded-md">Khas Peranti iPhone / iPad (iOS Sahaja)</span>
+                  <h3 class="text-lg font-bold text-gray-800 mt-1">📱 Titik Kalibrasi Khas iPhone (Wi-Fi Sekolah)</h3>
+                  <p class="text-xs text-gray-500">Buka halaman ini menggunakan sebuah iPhone yang tersambung ke Wi-Fi sekolah di Pejabat/Dewan untuk merakam titik anjakan router Apple</p>
+                </div>
+                <div class="flex flex-wrap gap-2 self-start md:self-auto">
+                  <button type="button" onclick="captureIphoneZoneCenter()" class="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow transition-all">
+                    📱 Rakam Titik Khas iPhone
+                  </button>
+                  <button type="button" onclick="clearIphoneZoneInputs()" class="px-3 py-3 bg-white hover:bg-red-50 text-red-600 text-xs font-bold rounded-xl border border-red-200 transition-all">
+                    🗑️ Kosongkan
+                  </button>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">Latitud Khas iPhone</label>
+                  <input type="number" step="any" id="gps-ios-lat" oninput="updateZoneFromInputs()" placeholder="Kosong jika belum diset" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono bg-white">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">Longitud Khas iPhone</label>
+                  <input type="number" step="any" id="gps-ios-lng" oninput="updateZoneFromInputs()" placeholder="Kosong jika belum diset" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono bg-white">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">Had Radius Khas iPhone (Meter)</label>
+                  <input type="number" min="5" max="100" id="gps-ios-radius" oninput="updateZoneFromInputs()" value="20" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-indigo-800 bg-white">
+                </div>
+              </div>
+              <p class="text-xs text-indigo-900/80 font-medium">* Kekalkan radius kecil (contohnya 15 hingga 20 meter) supaya kawasan kuarters guru kekal terkunci. Peranti Android tidak dibenarkan menggunakan titik ini.</p>
             </div>
 
             <!-- Butang Simpan ke Google Sheet -->
@@ -1140,7 +1174,7 @@
 
   <script>
     // ✅ CONFIGURATION - Google Apps Script & CSV URLs
-    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyyzK_4nL2qJ4kf-TDHcRrVyes4ftETO3m8YukoQPJq2g_ZXn0kA0nV2zczHGBA-vkphw/exec';
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzuoY58o7aLm22S0DaKbPeGpOzh7pklG9bWT_wMn7WV4aoR35EpIc-63r_niRRBKF83Ew/exec';
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRUfMMU_QAAPE9Y3bp1DtBCy7WSNYP5U3t6D8Jixmj2TpQpj_Qsns27s3ZMoboQwpHKA0Y3j2Db2k24/pub?gid=0&single=true&output=csv';
 
 let staffData = {};
@@ -2302,17 +2336,34 @@ let staffData = {};
     });
    let isSubmittingDaily = false;
 
-    // State Tetapan 1 Zon GPS (Merangkumi Pejabat Sekolah & Dewan Serbaguna)
+    // State Tetapan Zon GPS (Zon Utama + Titik Kalibrasi Khas iPhone Wi-Fi Sekolah)
     let gpsZone = {
       name: 'Pejabat Sekolah & Dewan Serbaguna',
       lat: null,
       lng: null,
-      radius: 30
+      radius: 30,
+      iosLat: null,
+      iosLng: null,
+      iosRadius: 20
     };
 
-   // Konfigurasi Penstabilan Satelit & Perisai Anti-Fake GPS / Anti-VPN
+   // Konfigurasi Penstabilan Satelit, Pengesan iOS & Perisai Anti-Fake GPS / Anti-VPN
     const GPS_STABILIZE_SECONDS = 10; // Wajib stabil 10 saat sebelum buka akses
-    const MAX_GPS_ACCURACY_METERS = 10; // Ralat ketepatan satelit wajib <= 10 meter ke bawah sahaja
+    const MAX_GPS_ACCURACY_METERS = 10; // Had ketepatan satelit Android (<= 10m)
+    const MAX_GPS_ACCURACY_IOS_METERS = 20; // Had ketepatan satelit iPhone/iOS Wi-Fi Hibrid (<= 20m)
+
+    function isAppleIosDevice() {
+      const ua = navigator.userAgent || '';
+      const platform = navigator.platform || '';
+      if (/Android/i.test(ua) || /Linux/i.test(platform)) return false;
+      const isIOSUA = /iPhone|iPad|iPod/i.test(ua) || /iPhone|iPad|iPod/i.test(platform);
+      const isIPadOS = (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      return isIOSUA || isIPadOS;
+    }
+
+    function getMaxAllowedGpsAccuracy() {
+      return isAppleIosDevice() ? MAX_GPS_ACCURACY_IOS_METERS : MAX_GPS_ACCURACY_METERS;
+    }
     let gpsStabilizeRemaining = GPS_STABILIZE_SECONDS;
     let gpsWatchId = null;
     let gpsReadingHistory = [];
@@ -2484,15 +2535,21 @@ let staffData = {};
       return R * c;
     }
 
-    // Paparkan nilai gpsZone ke dalam kotak input Admin
+    // Paparkan nilai gpsZone (Zon Utama + Titik Khas iPhone) ke dalam kotak input Admin
     function syncGpsInputsFromState() {
       const zLat = document.getElementById('gps-zon-lat');
       const zLng = document.getElementById('gps-zon-lng');
       const zRad = document.getElementById('gps-zon-radius');
+      const iLat = document.getElementById('gps-ios-lat');
+      const iLng = document.getElementById('gps-ios-lng');
+      const iRad = document.getElementById('gps-ios-radius');
 
       if (zLat) zLat.value = gpsZone.lat !== null ? gpsZone.lat : '';
       if (zLng) zLng.value = gpsZone.lng !== null ? gpsZone.lng : '';
       if (zRad) zRad.value = gpsZone.radius || 30;
+      if (iLat) iLat.value = gpsZone.iosLat !== null ? gpsZone.iosLat : '';
+      if (iLng) iLng.value = gpsZone.iosLng !== null ? gpsZone.iosLng : '';
+      if (iRad) iRad.value = gpsZone.iosRadius || 20;
     }
 
     // Kemas kini state apabila Admin menaip ubah koordinat atau radius
@@ -2500,12 +2557,33 @@ let staffData = {};
       const zLat = parseFloat(document.getElementById('gps-zon-lat').value);
       const zLng = parseFloat(document.getElementById('gps-zon-lng').value);
       const zRad = parseFloat(document.getElementById('gps-zon-radius').value);
+      const iLatEl = document.getElementById('gps-ios-lat');
+      const iLngEl = document.getElementById('gps-ios-lng');
+      const iRadEl = document.getElementById('gps-ios-radius');
 
       gpsZone.lat = !isNaN(zLat) ? zLat : null;
       gpsZone.lng = !isNaN(zLng) ? zLng : null;
       gpsZone.radius = !isNaN(zRad) && zRad > 0 ? zRad : 30;
 
+      if (iLatEl && iLngEl && iRadEl) {
+        const iLat = parseFloat(iLatEl.value);
+        const iLng = parseFloat(iLngEl.value);
+        const iRad = parseFloat(iRadEl.value);
+        gpsZone.iosLat = !isNaN(iLat) ? iLat : null;
+        gpsZone.iosLng = !isNaN(iLng) ? iLng : null;
+        gpsZone.iosRadius = !isNaN(iRad) && iRad > 0 ? iRad : 20;
+      }
+
       evaluateGpsPosition();
+    }
+
+    function clearIphoneZoneInputs() {
+      gpsZone.iosLat = null;
+      gpsZone.iosLng = null;
+      gpsZone.iosRadius = 20;
+      syncGpsInputsFromState();
+      evaluateGpsPosition();
+      showToast('🗑️ Titik Khas iPhone dikosongkan. Tekan butang Simpan ke Google Sheet untuk mengesahkan.', 'success');
     }
 
 // Buffer Penapisan Koordinat Stabil (Accuracy-Weighted Moving Average)
@@ -2516,6 +2594,11 @@ let staffData = {};
         return { lat: rawLat, lng: rawLng };
       }
       const accVal = Math.max(rawAcc || 10, 1);
+
+      // Singkirkan bacaan kasar pencawang/selular awal (>35m) sebaik sahaja bacaan tajam (<=20m) diterima
+      if (accVal <= 20 && gpsSmoothBuffer.some(item => item.acc > 35)) {
+        gpsSmoothBuffer = gpsSmoothBuffer.filter(item => item.acc <= 35);
+      }
 
       // Jika berlaku perubahan lokasi melebihi 35 meter, reset buffer supaya tidak melambatkan pergerakan sebenar
       if (gpsSmoothBuffer.length > 0) {
@@ -2636,7 +2719,92 @@ let staffData = {};
       }, 3500);
     }
 
-    // Simpan tetapan koordinat 1 Zon ke dalam Google Sheet
+   // Rakam Titik Kalibrasi Khas iPhone (Wi-Fi Sekolah) & Simpan Automatik
+    function captureIphoneZoneCenter() {
+      if (!isAppleIosDevice()) {
+        showToast('⚠️ Sila buka halaman ini menggunakan sebuah iPhone/iPad yang tersambung ke Wi-Fi sekolah untuk merakam Titik Khas iPhone (atau taip koordinat iPhone secara manual).', 'error');
+        return;
+      }
+      if (!navigator.geolocation) {
+        showToast('❌ Pelayar anda tidak menyokong fungsi GPS', 'error');
+        return;
+      }
+      showToast('📱 Mengambil 4 sampel bacaan lokasi iPhone (Wi-Fi Sekolah) untuk kunci Titik Khas iPhone...', 'success');
+
+      const samples = [];
+      const targetSamples = 4;
+      let tempWatchId = null;
+      let finished = false;
+
+      const finalizeIosCalibration = async () => {
+        if (finished) return;
+        finished = true;
+        if (tempWatchId !== null) {
+          navigator.geolocation.clearWatch(tempWatchId);
+        }
+
+        if (samples.length === 0) {
+          showToast('❌ Gagal merakam lokasi iPhone: Pastikan Location Services & Precise Location Safari diaktifkan.', 'error');
+          return;
+        }
+
+        let wLat = 0;
+        let wLng = 0;
+        let wTotal = 0;
+        let bestAcc = 999;
+
+        samples.forEach(s => {
+          const acc = Math.max(s.accuracy || 5, 1);
+          const w = 1 / (acc * acc);
+          wLat += s.lat * w;
+          wLng += s.lng * w;
+          wTotal += w;
+          if (acc < bestAcc) bestAcc = acc;
+        });
+
+        const finalLat = parseFloat((wLat / wTotal).toFixed(8));
+        const finalLng = parseFloat((wLng / wTotal).toFixed(8));
+
+        gpsZone.iosLat = finalLat;
+        gpsZone.iosLng = finalLng;
+
+        gpsSmoothBuffer = [{ lat: finalLat, lng: finalLng, acc: bestAcc, weight: 1 }];
+        currentDeviceGps.lat = finalLat;
+        currentDeviceGps.lng = finalLng;
+
+        localStorage.setItem('skup_gps_zone_single', JSON.stringify(gpsZone));
+        syncGpsInputsFromState();
+        evaluateGpsPosition();
+
+        showToast(`✅ Titik Khas iPhone dirakam (±${Math.round(bestAcc)}m)! Menyimpan ke Google Sheet...`, 'success');
+        await saveGpsZonesToSheet();
+      };
+
+      tempWatchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          samples.push({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy
+          });
+          if (samples.length >= targetSamples) {
+            finalizeIosCalibration();
+          }
+        },
+        () => {
+          finalizeIosCalibration();
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+      );
+
+      setTimeout(() => {
+        if (!finished && samples.length > 0) {
+          finalizeIosCalibration();
+        }
+      }, 3500);
+    }
+
+    // Simpan tetapan koordinat Zon Utama & Titik Khas iPhone ke dalam Google Sheet
     async function saveGpsZonesToSheet() {
       updateZoneFromInputs();
       const btn = document.getElementById('save-gps-btn');
@@ -2652,12 +2820,15 @@ let staffData = {};
         url.searchParams.append('zon_lat', gpsZone.lat !== null ? gpsZone.lat : '');
         url.searchParams.append('zon_lng', gpsZone.lng !== null ? gpsZone.lng : '');
         url.searchParams.append('zon_radius', gpsZone.radius || 30);
+        url.searchParams.append('ios_lat', gpsZone.iosLat !== null ? gpsZone.iosLat : '');
+        url.searchParams.append('ios_lng', gpsZone.iosLng !== null ? gpsZone.iosLng : '');
+        url.searchParams.append('ios_radius', gpsZone.iosRadius || 20);
 
         const response = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
         const result = await response.json();
 
         if (result.status === 'success') {
-          showToast('✅ Tetapan Zon GPS berjaya disimpan kekal ke dalam Google Sheet!', 'success');
+          showToast('✅ Tetapan Zon GPS (Utama & iPhone) berjaya disimpan kekal ke Google Sheet!', 'success');
         } else {
           throw new Error(result.message || 'Pastikan kod Apps Script telah dikemaskini untuk fungsi saveGpsZones');
         }
@@ -2671,16 +2842,23 @@ let staffData = {};
       }
     }
 
-    // Muat tetapan koordinat 1 Zon dari Google Sheet semasa aplikasi dibuka (Lindungi daripada terpadam)
+    // Muat tetapan koordinat Zon Utama & Titik Khas iPhone dari Google Sheet semasa aplikasi dibuka
     async function loadGpsZonesFromSheet() {
       try {
         const cached = localStorage.getItem('skup_gps_zone_single');
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (parsed && parsed.lat !== null && !isNaN(parseFloat(parsed.lat))) {
-            gpsZone.lat = parseFloat(parsed.lat);
-            gpsZone.lng = parseFloat(parsed.lng);
-            gpsZone.radius = parseFloat(parsed.radius) || 30;
+          if (parsed) {
+            if (parsed.lat !== null && !isNaN(parseFloat(parsed.lat))) {
+              gpsZone.lat = parseFloat(parsed.lat);
+              gpsZone.lng = parseFloat(parsed.lng);
+              gpsZone.radius = parseFloat(parsed.radius) || 30;
+            }
+            if (parsed.iosLat !== undefined && parsed.iosLat !== null && !isNaN(parseFloat(parsed.iosLat))) {
+              gpsZone.iosLat = parseFloat(parsed.iosLat);
+              gpsZone.iosLng = parseFloat(parsed.iosLng);
+              gpsZone.iosRadius = parseFloat(parsed.iosRadius) || 20;
+            }
             syncGpsInputsFromState();
           }
         }
@@ -2694,6 +2872,11 @@ let staffData = {};
           const sheetLat = parseFloat(d.zon_lat);
           const sheetLng = parseFloat(d.zon_lng);
           const sheetRad = parseFloat(d.zon_radius);
+          const iosSheetLat = parseFloat(d.ios_lat);
+          const iosSheetLng = parseFloat(d.ios_lng);
+          const iosSheetRad = parseFloat(d.ios_radius);
+
+          let updatedFromSheet = false;
 
           if (!isNaN(sheetLat) && !isNaN(sheetLng)) {
             gpsZone.lat = sheetLat;
@@ -2701,55 +2884,101 @@ let staffData = {};
             if (!isNaN(sheetRad) && sheetRad > 0) {
               gpsZone.radius = sheetRad;
             }
+            updatedFromSheet = true;
+          }
+
+          if (!isNaN(iosSheetLat) && !isNaN(iosSheetLng)) {
+            gpsZone.iosLat = iosSheetLat;
+            gpsZone.iosLng = iosSheetLng;
+            gpsZone.iosRadius = (!isNaN(iosSheetRad) && iosSheetRad > 0) ? iosSheetRad : 20;
+            updatedFromSheet = true;
+          } else if ('ios_lat' in d) {
+            gpsZone.iosLat = null;
+            gpsZone.iosLng = null;
+            gpsZone.iosRadius = (!isNaN(iosSheetRad) && iosSheetRad > 0) ? iosSheetRad : 20;
+            updatedFromSheet = true;
+          }
+
+          if (updatedFromSheet) {
             localStorage.setItem('skup_gps_zone_single', JSON.stringify(gpsZone));
             syncGpsInputsFromState();
             evaluateGpsPosition();
             console.log('✅ Zon GPS dimuatkan dari Google Sheet:', gpsZone);
-          } else if (gpsZone.lat !== null && gpsZone.lng !== null) {
-            // Jika tab Google Sheet kosong tetapi peranti ada koordinat sah, segerakkan semula ke Sheet
-            console.log('ℹ️ Menyegerakkan semula koordinat tersimpan ke Google Sheet...');
           }
         }
       } catch (error) {
         console.log('ℹ️ Menggunakan tetapan GPS sedia ada:', error.message);
       }
     }
-    // Kira jarak semasa ke Titik Tengah Zon dengan Pampasan Drift Satelit (Center Anchor Snap 0.5m - 1.0m)
+// Fungsi pembantu Center Anchor Snap (0.5m - 1.0m di titik tengah tanpa melimpahkan sempadan luar radius)
+    function computeSnappedDistance(rawDist, targetRadius, acc) {
+      if (rawDist === null) return null;
+      const coreDriftLimit = Math.min(Math.max((acc || 6) + 3, 11.5), targetRadius * 0.55);
+      if (rawDist <= coreDriftLimit) {
+        return 0.5 + (rawDist / coreDriftLimit) * 0.5;
+      } else if (rawDist <= targetRadius) {
+        return 1.0 + ((rawDist - coreDriftLimit) / (targetRadius - coreDriftLimit)) * (targetRadius - 1.0);
+      }
+      return rawDist;
+    }
+
+    // Kira jarak semasa ke Zon Utama (Semua Peranti) & Titik Khas iPhone (iOS Sahaja)
     function evaluateGpsPosition() {
       const lat = currentDeviceGps.lat;
       const lng = currentDeviceGps.lng;
       const acc = currentDeviceGps.accuracy;
+      const isIOS = isAppleIosDevice();
+      const maxAllowedAcc = getMaxAllowedGpsAccuracy();
 
-      const rawDistZon = calculateHaversineMeters(lat, lng, gpsZone.lat, gpsZone.lng);
-      const zoneRadius = gpsZone.radius || 30;
+      const mainRadius = gpsZone.radius || 30;
+      const iosRadius = gpsZone.iosRadius || 20;
+      const hasMainZone = gpsZone.lat !== null && gpsZone.lng !== null;
+      const hasIosZone = gpsZone.iosLat !== null && gpsZone.iosLng !== null;
 
-      // Pampasan Ralat Orbit Satelit Harian (Center Anchor Snap):
-      // Jika berdiri semula di titik tengah yang ditetapkan (dalam lingkungan drift satelit <= 12m),
-      // stabilkan bacaan tepat kepada 0.5m - 1.0m tanpa melimpahkan sempadan luar radius (kuarters kekal terkunci).
-      let distZon = null;
-      if (rawDistZon !== null) {
-        const coreDriftLimit = Math.min(Math.max((acc || 6) + 3, 11.5), zoneRadius * 0.55);
-        if (rawDistZon <= coreDriftLimit) {
-          distZon = 0.5 + (rawDistZon / coreDriftLimit) * 0.5; // Hasil tepat antara 0.5m hingga 1.0m di titik tengah
-        } else if (rawDistZon <= zoneRadius) {
-          distZon = 1.0 + ((rawDistZon - coreDriftLimit) / (zoneRadius - coreDriftLimit)) * (zoneRadius - 1.0);
-        } else {
-          distZon = rawDistZon;
+      const rawDistMain = hasMainZone ? calculateHaversineMeters(lat, lng, gpsZone.lat, gpsZone.lng) : null;
+      const distMain = computeSnappedDistance(rawDistMain, mainRadius, acc);
+
+      const rawDistIos = hasIosZone ? calculateHaversineMeters(lat, lng, gpsZone.iosLat, gpsZone.iosLng) : null;
+      const distIos = computeSnappedDistance(rawDistIos, iosRadius, acc);
+
+      const inMainRadius = distMain !== null && distMain <= mainRadius;
+      const inIosRadius = isIOS && distIos !== null && distIos <= iosRadius;
+      const withinRadius = inMainRadius || inIosRadius;
+
+      // Pilih paparan jarak aktif yang paling relevan mengikut jenis peranti
+      let distZon = distMain;
+      let activeRadius = mainRadius;
+      let activeZoneLabel = 'Zon Utama';
+
+      if (inIosRadius && !inMainRadius) {
+        distZon = distIos;
+        activeRadius = iosRadius;
+        activeZoneLabel = 'Zon Khas iPhone';
+      } else if (inMainRadius) {
+        distZon = distMain;
+        activeRadius = mainRadius;
+        activeZoneLabel = 'Zon Utama';
+      } else if (isIOS && hasIosZone && distIos !== null) {
+        if (distMain === null || (distIos - iosRadius) < (distMain - mainRadius)) {
+          distZon = distIos;
+          activeRadius = iosRadius;
+          activeZoneLabel = 'Zon Khas iPhone';
         }
       }
 
       currentDeviceGps.distZon = distZon;
 
-      const withinRadius = distZon !== null && distZon <= zoneRadius;
-      const isAccuracyGood = acc !== null && acc <= MAX_GPS_ACCURACY_METERS;
+      const isAccuracyGood = acc !== null && acc <= maxAllowedAcc;
       currentDeviceGps.isAccuracyGood = isAccuracyGood;
 
       const isSecurityClean = !currentDeviceGps.isFakeGpsDetected && !currentDeviceGps.isVpnDetected;
 
-      // Staf hanya disahkan berada di dalam zon selepas 10s stabil, ralat <= 10m, DAN bebas Fake GPS / VPN
+      // Staf hanya disahkan berada di dalam zon selepas 10s stabil, ketepatan lulus, DAN bebas Fake GPS / VPN
       const inZon = !currentDeviceGps.isStabilizing && withinRadius && isAccuracyGood && isSecurityClean;
       currentDeviceGps.inZone = inZon;
-      currentDeviceGps.zoneName = inZon ? 'Pejabat Sekolah & Dewan Serbaguna' : 'Luar Kawasan Dibenarkan';
+      currentDeviceGps.zoneName = inZon
+        ? (inIosRadius && !inMainRadius ? 'Pejabat Sekolah & Dewan Serbaguna (Zon iPhone)' : 'Pejabat Sekolah & Dewan Serbaguna')
+        : 'Luar Kawasan Dibenarkan';
 
       // Kemas kini Kotak Status Perisai Keselamatan Staf
       const secStatusEl = document.getElementById('staff-security-status');
@@ -2776,9 +3005,13 @@ let staffData = {};
       const adminStatusEl = document.getElementById('admin-live-zone-status');
 
       if (adminCoordsEl) {
-        adminCoordsEl.textContent = lat !== null ? `${lat.toFixed(6)}, ${lng.toFixed(6)}` : 'Menunggu GPS...';
-        adminAccEl.textContent = acc !== null ? `± ${Math.round(acc)}m (Had Ralat ≤${MAX_GPS_ACCURACY_METERS}m)` : '± -- meter';
-        adminDistZ.textContent = distZon !== null ? `${distZon.toFixed(1)}m / Had ${gpsZone.radius}m` : 'Belum diset';
+        const tagPeranti = isIOS ? '📱 iOS' : '🤖 Android/Lain';
+        adminCoordsEl.textContent = lat !== null ? `${lat.toFixed(6)}, ${lng.toFixed(6)} (${tagPeranti})` : `Menunggu GPS... (${tagPeranti})`;
+        adminAccEl.textContent = acc !== null ? `± ${Math.round(acc)}m (Had Ralat ≤${maxAllowedAcc}m)` : '± -- meter';
+
+        const teksUtama = distMain !== null ? `Utama: ${distMain.toFixed(1)}m/${mainRadius}m` : 'Utama: Belum diset';
+        const teksIos = distIos !== null ? ` | iPhone: ${distIos.toFixed(1)}m/${iosRadius}m` : ' | iPhone: Belum diset';
+        adminDistZ.textContent = teksUtama + teksIos;
 
         if (currentDeviceGps.isVpnDetected) {
           adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white self-start';
@@ -2794,10 +3027,10 @@ let staffData = {};
           adminStatusEl.textContent = `⏳ MENSTABILKAN SATELIT (${gpsStabilizeRemaining}s)...`;
         } else if (!isAccuracyGood) {
           adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 text-white self-start';
-          adminStatusEl.textContent = `⚠️ RALAT SATELIT TINGGI (±${Math.round(acc)}m > ${MAX_GPS_ACCURACY_METERS}m)`;
+          adminStatusEl.textContent = `⚠️ RALAT SATELIT TINGGI (±${Math.round(acc)}m > ${maxAllowedAcc}m)`;
         } else if (currentDeviceGps.inZone) {
           adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-green-500 text-white self-start';
-          adminStatusEl.textContent = '✅ DI DALAM ZON SAH (Pejabat & Dewan)';
+          adminStatusEl.textContent = `✅ DI DALAM ZON SAH (${activeZoneLabel})`;
         } else {
           adminStatusEl.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white self-start';
           adminStatusEl.textContent = '🔒 DI LUAR ZON (Kuarters / Kawasan Luar Terkunci)';
@@ -2811,11 +3044,13 @@ let staffData = {};
 
       if (staffBadge) {
         if (staffDistZ) {
-          staffDistZ.textContent = distZon !== null ? `${distZon.toFixed(1)}m (Had ${gpsZone.radius}m)` : 'Belum ditetapkan';
+          staffDistZ.textContent = distZon !== null
+            ? `${distZon.toFixed(1)}m (Had ${activeRadius}m • ${activeZoneLabel})`
+            : 'Belum ditetapkan';
         }
-        staffAcc.textContent = acc !== null ? `± ${Math.round(acc)} meter (Syarat ≤ ${MAX_GPS_ACCURACY_METERS}m)` : '± -- meter';
+        staffAcc.textContent = acc !== null ? `± ${Math.round(acc)} meter (Syarat ≤ ${maxAllowedAcc}m)` : '± -- meter';
 
-        const noZoneConfigured = gpsZone.lat === null || gpsZone.lng === null;
+        const noZoneConfigured = !hasMainZone && !(isIOS && hasIosZone);
         if (currentDeviceGps.isVpnDetected) {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-red-100 text-red-800 border border-red-300';
           staffBadge.textContent = `🚫 ${currentDeviceGps.vpnReason}`;
@@ -2836,13 +3071,15 @@ let staffData = {};
           staffBadge.textContent = '🛰️ Sedang mendapatkan bacaan tepat satelit GPS...';
         } else if (!isAccuracyGood) {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
-          staffBadge.textContent = `⚠️ Ralat ketepatan satelit masih tinggi (±${Math.round(acc)}m). Menunggu bacaan stabil ≤ ±${MAX_GPS_ACCURACY_METERS}m...`;
+          staffBadge.textContent = `⚠️ Ralat ketepatan satelit masih tinggi (±${Math.round(acc)}m). Menunggu bacaan stabil ≤ ±${maxAllowedAcc}m...`;
         } else if (currentDeviceGps.inZone) {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-green-100 text-green-800 border border-green-300';
-          staffBadge.textContent = '✅ Lokasi Sahih, Stabil & Bebas Fake GPS/VPN: Anda berada di dalam zon Pejabat Sekolah & Dewan Serbaguna.';
+          staffBadge.textContent = `✅ Lokasi Sahih, Stabil & Bebas Fake GPS/VPN: Anda berada di dalam zon Pejabat Sekolah & Dewan Serbaguna (${activeZoneLabel}).`;
         } else {
           staffBadge.className = 'px-3 py-2 rounded-lg text-xs font-bold bg-red-100 text-red-800 border border-red-300';
-          staffBadge.textContent = '⛔ Anda berada di luar radius Pejabat Sekolah & Dewan Serbaguna. Butang Hantar dikunci.';
+          staffBadge.textContent = isIOS && !hasIosZone
+            ? '⛔ Di luar radius Zon Utama (Peranti iPhone dikesan: Admin boleh merakam Titik Kalibrasi Khas iPhone pada tab Tetapan Zon GPS jika memakai Wi-Fi sekolah).'
+            : '⛔ Anda berada di luar radius Pejabat Sekolah & Dewan Serbaguna. Butang Hantar dikunci.';
         }
       }
 
@@ -3197,7 +3434,7 @@ let staffData = {};
       if (!currentDeviceGps.isAccuracyGood) {
         submitBtn.disabled = true;
         const ralatSemasa = currentDeviceGps.accuracy !== null ? `±${Math.round(currentDeviceGps.accuracy)}m` : '';
-        submitText.textContent = `⚠️ Tunggu Ralat Satelit ≤ ${MAX_GPS_ACCURACY_METERS}m (Semasa: ${ralatSemasa})`;
+        submitText.textContent = `⚠️ Tunggu Ralat Satelit ≤ ${getMaxAllowedGpsAccuracy()}m (Semasa: ${ralatSemasa})`;
         return false;
       }
 
